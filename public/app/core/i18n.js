@@ -328,6 +328,7 @@ const DICT = {
   'auth.diag_stored': ['This browser allows storage', 'இந்த பிரவுசர் சேமிப்பை அனுமதிக்கிறது'],
   'auth.diag_framing': ['App is shown inside another page', 'ஆப்ஸ் வேறு பக்கத்திற்குள் காட்டப்படுகிறது'],
   'auth.diag_server_saw': ['Server sees the request as', 'சர்வர் இந்த கோரிக்கையை பார்க்கும் விதம்'],
+  'auth.diag_counter': ['Counter (owner) door', 'கவுண்டர் (உரிமையாளர்) பக்கம்'],
   'auth.diag_frame_yes': ['inside a frame', 'ஃப்ரேமுக்குள்'],
   'auth.diag_frame_no': ['a normal tab', 'சாதாரண டேப்'],
   'auth.diag_disk': ['Shop data disk', 'கடை தரவு டிஸ்க்'],

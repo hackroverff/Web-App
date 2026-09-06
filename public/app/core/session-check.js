@@ -80,9 +80,17 @@ export function openSessionCheck() {
     actions: [h('button', { class: 'btn ghost', text: t('auth.diag_reload'), onclick: () => reloadFresh() })],
   });
 
-  api
-    .get('/api/auth/diag', { silent401: true })
-    .then((diag) => {
+  const both = Promise.all([
+    api.get('/api/auth/diag', { silent401: true }),
+    // The shop and the counter are separate sessions now, so the sheet reports each door it can
+    // see — a shopper asking about the counter is how "the owner portal won't open" gets answered.
+    // A lost counter credential is the interesting case, so a refusal still renders the row as
+    // "no" instead of hiding it.
+    state.owner?.signedIn ? api.get('/api/owner/session', { silent401: true }).catch(() => ({ signed_in: false })) : null,
+  ]);
+
+  both
+    .then(([diag, counter]) => {
       const advice = adviceOf(diag);
       mount(
         body,
@@ -97,6 +105,13 @@ export function openSessionCheck() {
         flagRow(t('auth.diag_stored'), storageAvailable()),
         row(t('auth.diag_framing'), inFrame ? t('auth.diag_frame_yes') : t('auth.diag_frame_no'), 'grey'),
         row(t('auth.diag_server_saw'), diag.embedded ? t('auth.diag_frame_yes') : t('auth.diag_frame_no'), 'grey'),
+        counter
+          ? row(
+              t('auth.diag_counter'),
+              counter.signed_in ? t('auth.diag_yes_as', { who: counter.staff?.name || t('auth.diag_counter') }) : t('auth.diag_no'),
+              counter.signed_in ? 'ok' : 'out',
+            )
+          : null,
         row(
           t('auth.diag_disk'),
           ephemeral(diag) ? t('auth.diag_disk_ephemeral') : t('auth.diag_disk_persistent'),
