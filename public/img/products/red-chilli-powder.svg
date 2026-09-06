@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Red Chilli Powder">
 <rect width="120" height="100" rx="14" fill="#eaf5ee"/>
 <g transform="translate(4 2)"><path d="M44 30c0-6 5-9 12-9s12 3 12 9c0 5-4 7-4 12 0 8 5 10 5 19 0 9-7 14-13 14s-13-5-13-14c0-9 5-11 5-19 0-5-4-7-4-12z" fill="#0f7b4f" opacity=".9"/><path d="M50 21h12" stroke="#eaf5ee" stroke-width="3" stroke-linecap="round"/></g>
-<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#0f7b4f" opacity=".65"></text>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#0f7b4f" opacity=".65">200 g</text>
 <text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#0f7b4f" opacity=".22">RC</text>
 </svg>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Fresh Curd Cup">
 <rect width="120" height="100" rx="14" fill="#f2f4fb"/>
 <g transform="translate(4 2)"><path d="M46 24h20v8l6 10v30a6 6 0 0 1-6 6H46a6 6 0 0 1-6-6V42l6-10z" fill="#3f4d94" opacity=".9"/><path d="M44 50h24" stroke="#f2f4fb" stroke-width="3"/></g>
-<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#3f4d94" opacity=".65"></text>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#3f4d94" opacity=".65">400 g</text>
 <text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#3f4d94" opacity=".22">FC</text>
 </svg>

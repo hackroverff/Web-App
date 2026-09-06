@@ -45,7 +45,10 @@ function initials(name) {
   return (two || name.slice(0, 2)).toUpperCase();
 }
 
-export function svgFor({ name, category, packSize }) {
+export function svgFor({ name, category, packSize, pack_size: packSnake }) {
+  // `packSize` from the seed, `pack_size` from a row straight out of the DB: both must paint the
+  // same file, or whichever tool ran last silently rewrites the committed artwork.
+  packSize = packSize ?? packSnake ?? '';
   const pal = PALETTE[category] || { bg: '#eef4ef', fg: '#0f7b4f', glyph: 'sack' };
   const glyph = (GLYPHS[pal.glyph] || GLYPHS.sack).replaceAll('CUR', pal.fg).replaceAll('BG', pal.bg);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="${escapeAttr(name)}">
@@ -64,6 +67,14 @@ export function svgFor({ name, category, packSize }) {
  */
 function tryWrite(file, contents) {
   try {
+    // Idempotent on purpose: seeding a throwaway test database runs this same generator, and
+    // without the content check every `npm test` rewrites tracked artwork in public/ — leaving
+    // the repo dirty (or, worse, quietly repainting cards from a different catalogue).
+    try {
+      if (fs.readFileSync(file, 'utf8') === contents) return false;
+    } catch {
+      /* missing: write it */
+    }
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, contents);
     return true;
@@ -82,7 +93,10 @@ export function ensureProductImages(products) {
   const written = [];
   for (const p of products) {
     const file = path.join(OUT_DIR, `${slugify(p.name)}.svg`);
-    const svg = svgFor({ name: p.name, category: p.category, packSize: p.pack_size });
+    // Callers arrive with either shape: the seed hands over { name, category, packSize }, a
+    // regeneration from the DB hands over { name, category, pack_size }. Read both, or the pack
+    // size silently vanishes from the artwork depending on which path painted the file last.
+    const svg = svgFor({ name: p.name, category: p.category, packSize: p.packSize ?? p.pack_size });
     tryWrite(file, svg);
     written.push(path.posix.join('/img/products', path.basename(file)));
   }
