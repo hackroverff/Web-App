@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Sathvika MV — provisions store crest">
+  <title>Sathvika MV</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6dd8a"/>
+      <stop offset=".42" stop-color="#c9a227"/>
+      <stop offset="1" stop-color="#8e6a14"/>
+    </linearGradient>
+    <linearGradient id="maroon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a22f40"/>
+      <stop offset="1" stop-color="#68121e"/>
+    </linearGradient>
+    <radialGradient id="field" cx=".5" cy=".42" r=".72">
+      <stop offset="0" stop-color="#fff8e6"/>
+      <stop offset="1" stop-color="#f6e2b0"/>
+    </radialGradient>
+    <path id="arcTop" d="M256 282m-158 0a158 158 0 1 1 316 0"/>
+    <path id="arcBottom" d="M256 282m132 0a132 132 0 1 1 -264 0"/>
+  </defs>
+
+  <!-- crown -->
+  <g stroke="#7d5b10" stroke-width="5" stroke-linejoin="round">
+    <path d="M162 100 L186 44 L218 78 L256 28 L294 78 L326 44 L350 100 Z" fill="url(#gold)"/>
+    <rect x="156" y="92" width="200" height="22" rx="9" fill="url(#gold)"/>
+    <circle cx="186" cy="38" r="9" fill="#c9a227"/>
+    <circle cx="256" cy="20" r="10" fill="#c9a227"/>
+    <circle cx="326" cy="38" r="9" fill="#c9a227"/>
+  </g>
+  <g fill="#8e1f2e">
+    <circle cx="206" cy="103" r="5"/>
+    <circle cx="256" cy="103" r="5"/>
+    <circle cx="306" cy="103" r="5"/>
+  </g>
+
+  <!-- ornate frame + maroon band -->
+  <circle cx="256" cy="282" r="196" fill="url(#gold)" stroke="#7d5b10" stroke-width="6"/>
+  <circle cx="256" cy="282" r="186" fill="none" stroke="#8e6a14" stroke-width="3" opacity=".55"/>
+  <circle cx="256" cy="282" r="172" fill="url(#maroon)" stroke="#4d0d16" stroke-width="4"/>
+  <g fill="url(#gold)" stroke="#7d5b10" stroke-width="2">
+    <circle cx="72" cy="282" r="8"/><circle cx="440" cy="282" r="8"/>
+    <circle cx="118" cy="146" r="7"/><circle cx="394" cy="146" r="7"/>
+    <circle cx="118" cy="418" r="7"/><circle cx="394" cy="418" r="7"/>
+  </g>
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="700" letter-spacing="6" fill="#f6dd8a">
+    <textPath xlink:href="#arcTop" href="#arcTop" startOffset="50%" text-anchor="middle">SATHVIKA MV</textPath>
+  </text>
+  <text font-family="system-ui, sans-serif" font-size="17" letter-spacing="2.5" fill="#e8c877">
+    <textPath xlink:href="#arcBottom" href="#arcBottom" startOffset="50%" text-anchor="middle">PROVISIONS · T. NAGAR · SINCE 1994</textPath>
+  </text>
+
+  <!-- cream medallion with a provision sack -->
+  <circle cx="256" cy="282" r="106" fill="url(#field)" stroke="#c9a227" stroke-width="6"/>
+  <circle cx="256" cy="282" r="97" fill="none" stroke="#c9a227" stroke-width="2" opacity=".65"/>
+  <g transform="translate(256 274)">
+    <path d="M-42-46c0-11 19-18 42-18s42 7 42 18c0 9-8 13-8 24 0 20 14 24 14 48 0 24-20 36-48 36s-48-12-48-36c0-24 14-28 14-48 0-11-8-15-8-24z" fill="#8e1f2e" opacity=".93"/>
+    <path d="M-26-60h52" stroke="#c9a227" stroke-width="8" stroke-linecap="round"/>
+    <text x="0" y="30" text-anchor="middle" font-family="Georgia, serif" font-size="38" font-weight="700" fill="#f6dd8a">SM</text>
+  </g>
+
+  <!-- ribbon -->
+  <g>
+    <path d="M100 432 L152 416 L152 468 L100 484 Z" fill="#8e6a14"/>
+    <path d="M412 432 L360 416 L360 468 L412 484 Z" fill="#8e6a14"/>
+    <rect x="124" y="414" width="264" height="54" rx="10" fill="url(#gold)" stroke="#7d5b10" stroke-width="5"/>
+    <text x="256" y="451" text-anchor="middle" font-family="system-ui, 'Noto Sans Tamil', sans-serif" font-size="27" font-weight="700" fill="#5c3f0c">சத்விக எம்.வி.</text>
+  </g>
+
+  <!-- star row -->
+  <g fill="url(#gold)" stroke="#7d5b10" stroke-width="2">
+    <polygon points="176.0,489.0 178.8,496.1 186.5,496.6 180.6,501.5 182.5,508.9 176.0,504.8 169.5,508.9 171.4,501.5 165.5,496.6 173.2,496.1"/>
+    <polygon points="216.0,489.0 218.8,496.1 226.5,496.6 220.6,501.5 222.5,508.9 216.0,504.8 209.5,508.9 211.4,501.5 205.5,496.6 213.2,496.1"/>
+    <polygon points="256.0,489.0 258.8,496.1 266.5,496.6 260.6,501.5 262.5,508.9 256.0,504.8 249.5,508.9 251.4,501.5 245.5,496.6 253.2,496.1"/>
+    <polygon points="296.0,489.0 298.8,496.1 306.5,496.6 300.6,501.5 302.5,508.9 296.0,504.8 289.5,508.9 291.4,501.5 285.5,496.6 293.2,496.1"/>
+    <polygon points="336.0,489.0 338.8,496.1 346.5,496.6 340.6,501.5 342.5,508.9 336.0,504.8 329.5,508.9 331.4,501.5 325.5,496.6 333.2,496.1"/>
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Floor Cleaner (Pine)">
+<rect width="120" height="100" rx="14" fill="#e9f6f7"/>
+<g transform="translate(4 2)"><path d="M44 42h22a5 5 0 0 1 5 5v21a5 5 0 0 1-5 5H44a5 5 0 0 1-5-5V47a5 5 0 0 1 5-5z" fill="#157178" opacity=".9"/><path d="M50 42V30h10l8 6" stroke="#157178" stroke-width="4" fill="none" stroke-linejoin="round"/><path d="M70 30l8-4" stroke="#157178" stroke-width="3" stroke-linecap="round"/></g>
+<text x="10" y="90" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="9.5" font-weight="600" fill="#157178" opacity=".85">Floor Cleaner (Pine)</text>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#157178" opacity=".65"></text>
+<text x="110" y="90" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#157178" opacity=".28">FC</text>
+</svg>

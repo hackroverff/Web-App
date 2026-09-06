@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Steel Storage Box (Set of 3)">
+<rect width="120" height="100" rx="14" fill="#f6f0e6"/>
+<g transform="translate(4 2)"><path d="M32 44h48v14a12 12 0 0 1-12 12H44a12 12 0 0 1-12-12z" fill="#7a5a25" opacity=".9"/><path d="M28 44h56" stroke="#7a5a25" stroke-width="4" stroke-linecap="round"/><path d="M56 28c6 0 8 4 8 8" stroke="#7a5a25" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+<text x="10" y="90" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="9.5" font-weight="600" fill="#7a5a25" opacity=".85">Steel Storage Box (Set</text>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#7a5a25" opacity=".65"></text>
+<text x="110" y="90" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#7a5a25" opacity=".28">SS</text>
+</svg>
