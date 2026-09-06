@@ -4,7 +4,7 @@
  */
 import express from 'express';
 import path from 'node:path';
-import { config, PUBLIC_DIR } from './config.js';
+import { config, PUBLIC_DIR, storageEphemeral } from './config.js';
 import { attachIdentity } from './middleware/session.js';
 import { rateLimit } from './lib/ratelimit.js';
 import { AppError } from './lib/errors.js';
@@ -131,6 +131,9 @@ export function createApp() {
       products: Number(get('SELECT COUNT(*) AS n FROM products').n || 0),
       users: Number(get('SELECT COUNT(*) AS n FROM users').n || 0),
       orders: Number(get('SELECT COUNT(*) AS n FROM orders').n || 0),
+      // Deploy debugging: `ephemeral` means the database is in /tmp because the platform
+      // gave us a read-only disk (serverless) — state will not survive an instance recycle.
+      storage: storageEphemeral ? 'ephemeral' : 'persistent',
       time: new Date().toISOString(),
     });
   });

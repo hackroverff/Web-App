@@ -57,11 +57,26 @@ export function svgFor({ name, category, packSize }) {
 </svg>`;
 }
 
+/**
+ * Static artwork lives in `public/`, which is committed — so on a read-only deployment
+ * (serverless functions, containers with a mounted read-only volume) the files are already
+ * there and the write is pure redundancy. Skip it instead of failing the boot; the DB row
+ * still points at the same URL, and product cards fall back to the placeholder on a 404.
+ */
+function tryWrite(file, contents) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, contents);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function ensureProductImages(products) {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
   // The card components fall back to this when a product has no artwork (a newly
   // created item before its first save, or a hand-rolled catalogue import).
-  fs.writeFileSync(
+  tryWrite(
     path.join(OUT_DIR, 'placeholder-1.svg'),
     svgFor({ name: 'Sathvika MV', category: 'Grocery & Staples', packSize: '' }),
   );
@@ -69,7 +84,7 @@ export function ensureProductImages(products) {
   for (const p of products) {
     const file = path.join(OUT_DIR, `${slugify(p.name)}.svg`);
     const svg = svgFor({ name: p.name, category: p.category, packSize: p.pack_size });
-    fs.writeFileSync(file, svg);
+    tryWrite(file, svg);
     written.push(path.posix.join('/img/products', path.basename(file)));
   }
   return written;
@@ -77,11 +92,10 @@ export function ensureProductImages(products) {
 
 export function ensureCategoryArt() {
   const dir = path.join(PUBLIC_DIR, 'img', 'categories');
-  fs.mkdirSync(dir, { recursive: true });
   for (const [name, pal] of Object.entries(PALETTE)) {
     const glyph = (GLYPHS[pal.glyph] || GLYPHS.sack).replaceAll('CUR', pal.fg).replaceAll('BG', pal.bg);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100"><rect width="120" height="100" rx="18" fill="${pal.bg}"/><g transform="scale(1.05) translate(2 2)">${glyph}</g></svg>`;
-    fs.writeFileSync(path.join(dir, `${slugify(name)}.svg`), svg);
+    tryWrite(path.join(dir, `${slugify(name)}.svg`), svg);
   }
   return Object.keys(PALETTE);
 }

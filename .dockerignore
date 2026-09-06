@@ -1,0 +1,13 @@
+# Build context noise — the image installs its own deps and owns its own data dir.
+node_modules
+npm-debug.log
+data
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+uploads
+backups
+coverage
+.DS_Store

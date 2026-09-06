@@ -3,6 +3,7 @@
  * on a phone tether, a cheap VPS, or a developer laptop without code changes.
  */
 import path from 'node:path';
+import os from 'node:os';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +14,32 @@ export const ROOT = path.resolve(__dirname, '..');
 const num = (v, d) => (v === undefined || v === '' || isNaN(Number(v)) ? d : Number(v));
 const bool = (v, d) => (v === undefined || v === '' ? d : ['1', 'true', 'yes', 'on'].includes(String(v).toLowerCase()));
 
-export const DATA_DIR = path.resolve(ROOT, process.env.DATA_DIR || 'data');
+const requestedDataDir = () => path.resolve(ROOT, process.env.DATA_DIR || 'data');
+
+/**
+ * Serverless hosts (Vercel Functions, Lambda) mount the deployment read-only and allow
+ * writes only under /tmp, so `data/` cannot hold the SQLite file there. Rather than dying
+ * at boot, fall back to a temp directory: the app then runs as a self-contained demo whose
+ * state resets whenever the instance is recycled. A normal server or container keeps using
+ * the on-disk data directory and is unaffected.
+ */
+function resolveDataDir() {
+  const wanted = requestedDataDir();
+  try {
+    fs.mkdirSync(wanted, { recursive: true });
+    fs.accessSync(wanted, fs.constants.W_OK);
+    return { dir: wanted, ephemeral: false };
+  } catch {
+    const dir = path.join(os.tmpdir(), 'sathvika-mv');
+    fs.mkdirSync(dir, { recursive: true });
+    return { dir, ephemeral: true };
+  }
+}
+
+const dataDir = resolveDataDir();
+export const DATA_DIR = dataDir.dir;
+/** True when the app could not keep its database on the deployment's disk. */
+export const storageEphemeral = dataDir.ephemeral;
 export const PUBLIC_DIR = path.resolve(ROOT, 'public');
 
 /**

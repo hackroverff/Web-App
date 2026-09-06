@@ -129,6 +129,9 @@ scripts/
                     (pure-Node PNG decode/encode — no ImageMagick, no canvas)
   check-frontend.mjs  static sweeps: i18n keys, icons, imports, API paths, identifiers, CSS classes
   smoke-frontend.mjs  renders every screen against the real API
+server.js           Vercel entrypoint only (captured Node.js server) — local/dev use npm start
+vercel.json         how Vercel routes the above; DEPLOY.md replaces it for the split setup
+Dockerfile          the same app on any container host with a volume at /data
 ```
 
 ## Checking it
@@ -162,7 +165,7 @@ All optional; copy `.env.example` or set variables directly.
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `PORT` / `HOST` | `4173` / `0.0.0.0` | |
-| `DATA_DIR` / `DB_FILE` | `./data` / `sathvika.db` | WAL mode; delete the file to start clean |
+| `DATA_DIR` / `DB_FILE` | `./data` / `sathvika.db` | WAL mode; delete the file to start clean. On a read-only disk (serverless) it silently falls back to `/tmp/sathvika-mv` — `/api/health` then reports `"storage": "ephemeral"` |
 | `OWNER_PIN` / `OWNER_PASSWORD` / `PIN_PEPPER` | demo values | change before real use; pepper protects the 4-digit keyspace |
 | `COOKIE_SECRET` | random, persisted in `DATA_DIR` | keeps sessions alive across restarts |
 | `SESSION_DAYS` / `ELEVATED_MINUTES` | `30` / `30` | elevation drops back to PIN-only automatically |
@@ -172,6 +175,26 @@ All optional; copy `.env.example` or set variables directly.
 | `SECURE_COOKIES` / `SAME_SITE` | `0` / `lax` | turn on `SECURE_COOKIES` once you have HTTPS |
 | `NOTIFY_PROVIDER` / `NOTIFY_WEBHOOK_URL` / `NOTIFY_WEBHOOK_TOKEN` / `NOTIFY_SENDER_ID` | `log` | `log` writes to the in-app outbox; `webhook` POSTs to your SMS/WhatsApp gateway |
 | `UPI_INTENT_SCHEME` | `upi` | used to build the `upi://pay` link on the payment screen |
+
+## Deploying
+
+See **[DEPLOY.md](DEPLOY.md)** for the full walkthrough. The short version, because it surprises
+people: Vercel runs a stateless function with a read-only filesystem, so the SQLite file has
+nowhere to live — Vercel is a great CDN for `public/` and a poor home for `data/`.
+
+- **Real shop** → Vercel serves the shell and proxies `/api/*` to one small persistent host
+  (Fly.io/Render/Railway with a volume, or a ₹500 VPS). The committed `Dockerfile` is that server;
+  no CORS, no cookie gymnastics, because the browser only ever sees your own domain.
+- **Demo link** → `vercel` alone works: `server.js` + `vercel.json` in this repo turn the whole app
+  into one captured Node.js server, and `server/config.js` moves the database to `/tmp` when the
+  disk is read-only. Everything on screen works; writes are discarded when the instance recycles,
+  so it is a walkthrough, not a till. `/api/health` reports `"storage": "ephemeral"` in that mode.
+- **100% Vercel with real persistence** → possible, but it means swapping the synchronous
+  `node:sqlite` wrapper for a hosted DB (Turso/Vercel Postgres) across 193 call sites — see option C.
+
+Whatever the host: `DATA_DIR` is the only thing that must survive a restart. Back it up
+(`sqlite3 data/sathvika.db ".backup …"`, not `cp` — WAL) and set `COOKIE_SECRET`, `PIN_PEPPER`,
+`EXPOSE_OTP=0`, `SECURE_COOKIES=1`.
 
 ## Before this goes live
 
