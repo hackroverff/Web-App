@@ -168,7 +168,12 @@ export function createApp() {
       maxAge: 0,
       setHeaders(res, filePath) {
         const rel = path.relative(PUBLIC_DIR, filePath);
-        if (rel.startsWith('img')) {
+        if (rel.startsWith('img/products') || rel.startsWith('img' + path.sep + 'categories') || rel.includes('brand')) {
+          // Generated art: `npm run reset`/seed repaints these files under the same URL, and a
+          // week of `immutable` would pin every card to last week's artwork with no way to force
+          // it. Revalidate instead — Express answers these with an ETag, so a hit is a 304.
+          res.setHeader('Cache-Control', 'no-cache');
+        } else if (rel.startsWith('img')) {
           res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
         } else if (rel.startsWith('app') || rel.endsWith('.css')) {
           // Module files are not content-hashed, so revalidate them — a returning visitor

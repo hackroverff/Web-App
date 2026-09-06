@@ -384,18 +384,20 @@ input.check { width: 18px; height: 18px; accent-color: var(--green-600); cursor:
    container above them has — as an in-flow block it used to leave a pale band around a dark
    screen, which is the single reason this page looked broken on a desktop-width frame. */
 .keypad-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 5;
+  min-height: 100dvh;
   display: flex;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: max(20px, 4vh) 18px calc(24px + var(--safe-b));
+  padding: max(18px, 3.5vh) 18px calc(24px + var(--safe-b));
   background: radial-gradient(110% 80% at 50% 0%, #14372a, #0b1a13 70%);
 }
-/* `margin: auto` on the child centers it in both axes and still lets a tall form (sign-up)
-   scroll from its top — `place-items: center` clips the first field above the scroll origin. */
+/* In flow and a viewport tall, not `position: fixed`: as a fixed layer it resolved against
+   whichever ancestor last transformed (the view transition), so the dark screen covered part of
+   the page and the card hung out of it over white — exactly the broken look in the preview.
+   `margin: auto` centres the card in both axes while still letting a taller form (sign-up)
+   scroll from its own top, which `place-items: center` clipped away. */
 .keypad-wrap > * { margin: auto; }
+/* Paint the document the same dark while the gate is up, so rubber-banding or a viewport taller
+   than the content can never reveal a white strip under a dark screen. */
+body:has(.keypad-card) { background: #0b1a13; }
 .keypad-card {
   width: min(368px, 100%);
   background: #10251c;

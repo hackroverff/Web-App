@@ -51,9 +51,8 @@ export function svgFor({ name, category, packSize }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="${escapeAttr(name)}">
 <rect width="120" height="100" rx="14" fill="${pal.bg}"/>
 <g transform="translate(4 2)">${glyph}</g>
-<text x="10" y="90" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="9.5" font-weight="600" fill="${pal.fg}" opacity=".85">${escapeXml(name.slice(0, 22))}</text>
 <text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="${pal.fg}" opacity=".65">${escapeXml(packSize || '')}</text>
-<text x="110" y="90" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="${pal.fg}" opacity=".28">${escapeXml(initials(name))}</text>
+<text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="${pal.fg}" opacity=".22">${escapeXml(initials(name))}</text>
 </svg>`;
 }
 

@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Glucose Biscuits">
 <rect width="120" height="100" rx="14" fill="#fdf1e3"/>
 <g transform="translate(4 2)"><path d="M34 30h44l-4 40a6 6 0 0 1-6 5H44a6 6 0 0 1-6-5z" fill="#b9621a" opacity=".85"/><path d="M34 30l8-8h28l8 8" stroke="#b9621a" stroke-width="3" fill="none"/><path d="M44 44h24M44 52h20" stroke="#fdf1e3" stroke-width="3" stroke-linecap="round"/></g>
-<text x="10" y="90" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="9.5" font-weight="600" fill="#b9621a" opacity=".85">Glucose Biscuits</text>
 <text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#b9621a" opacity=".65"></text>
-<text x="110" y="90" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#b9621a" opacity=".28">GB</text>
+<text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#b9621a" opacity=".22">GB</text>
 </svg>
