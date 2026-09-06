@@ -23,11 +23,10 @@ import { clientIp } from '../lib/ratelimit.js';
  */
 export function isEmbedded(req) {
   if (String(req.headers['x-app-context'] || '') === 'embedded') return true;
-  // A client that already carries the bearer token is by definition one that cannot rely on
-  // a cookie (frames, storage-restricted WebViews), so it has to keep getting None+Partitioned
-  // cookies and a mirrored token — otherwise the attributes flip back to Lax on the next
-  // request and the browser drops the session it just got.
-  if (bearerToken(req)) return true;
+  // Deliberately NOT inferred from the presence of a bearer token: that would upgrade a
+  // top-level visitor's cookie to SameSite=None; Secure, and a `Secure` cookie cannot exist on a
+  // plain-http LAN address (http://192.168.1.40:4173 — how a shop tablet reaches a laptop).
+  // Cookie strength follows framing only; carrying a token has its own opt-in header.
   const dest = String(req.headers['sec-fetch-dest'] || '');
   if (dest && ['iframe', 'frame', 'embed', 'object'].includes(dest)) return true;
   const site = String(req.headers['sec-fetch-site'] || '');
@@ -92,9 +91,13 @@ export function revokeUserSessions({ userId = null, staffId = null }) {
 
 export function setSessionCookie(res, session) {
   res.append('Set-Cookie', session.cookie);
-  // The JSON middleware in app.js copies this into the response body, but only for
-  // clients that are running embedded and can therefore not rely on the cookie.
-  if (config.allowBearer && res.locals.embedded) res.locals.sessionToken = session.token;
+  // The JSON middleware in app.js copies this into the response body. Two clients ask for it:
+  // one that is framed (it may not be allowed to store the cookie at all), and one that asked for
+  // a copy with `x-want-bearer: 1` — which the PWA does on every call, so a preview proxy that
+  // drops Set-Cookie cannot turn "sign in" into "please sign in".
+  if (config.allowBearer && (res.locals.embedded || res.locals.wantBearer)) {
+    res.locals.sessionToken = session.token;
+  }
 }
 
 /** Populate req.session / req.user / req.staff. Never throws. */

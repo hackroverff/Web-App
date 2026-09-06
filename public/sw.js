@@ -6,7 +6,7 @@
  *   • everything else under /api/ (cart, orders, owner) → network only, never stored
  *   • navigations → network, falling back to the cached shell
  */
-const VERSION = 'smv-v5';
+const VERSION = 'smv-v6';
 const SHELL = [
   '/',
   '/index.html',
@@ -23,6 +23,7 @@ const SHELL = [
   '/app/core/api.js',
   '/app/core/store.js',
   '/app/core/storage.js',
+  '/app/core/session-check.js',
   '/app/core/i18n.js',
   '/app/core/format.js',
   '/app/core/components.js',
@@ -87,6 +88,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Modules, styles and generated artwork are not content-hashed, so they go to the network
+  // first. Cache-first here is how "the fix isn't working" happens: the worker answers from its
+  // own copy, never asks the server, and a visitor stays on an old build through any number of
+  // reloads. These are already served with `no-cache`, so a hit is a cheap 304 — and the cache
+  // still answers when the network is gone.
+  if (/^(\/app\/|\/styles\/|\/img\/products\/|\/img\/categories\/)/.test(url.pathname)) {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then(
       (hit) =>
@@ -103,6 +114,21 @@ self.addEventListener('fetch', (event) => {
     ),
   );
 });
+
+async function networkFirst(req) {
+  const cache = await caches.open(VERSION);
+  try {
+    const res = await fetch(req);
+    if (res.ok) cache.put(req, res.clone()).catch(() => {});
+    return res;
+  } catch {
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    // A missing module offline is a broken page, not a missing picture.
+    if (new URL(req.url).pathname.startsWith('/app/')) return Response.error();
+    return caches.match('/img/products/placeholder-1.svg');
+  }
+}
 
 async function staleWhileRevalidate(req) {
   const cache = await caches.open(VERSION);

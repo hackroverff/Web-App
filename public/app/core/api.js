@@ -8,7 +8,7 @@
  */
 import { state, set } from './store.js';
 import { t } from './i18n.js';
-import { localGet, localRemove, localSet, sessionGet, sessionRemove, sessionSet } from './storage.js';
+import { localGet, localRemove, localSet, sessionGet, sessionRemove, sessionSet, storageAvailable } from './storage.js';
 
 const TOKEN_KEY = 'smv.session_token';
 
@@ -43,8 +43,13 @@ export function setBearerToken(token) {
   }
 }
 
-/** The framed/token client is the one whose cookies may be dropped — the server needs to know. */
-export const needsTokenTransport = () => inFrame || Boolean(bearer);
+/**
+ * The clients whose cookie can be dropped under them: one shown inside someone else's page, and
+ * one with no storage to keep either credential in. It picks the wording of a lost-session
+ * message, so it must not simply mean "we happen to hold a token" — every client is handed one
+ * now, and telling a plain browser tab that its frame is to blame is worse than saying nothing.
+ */
+export const needsTokenTransport = () => inFrame || !storageAvailable();
 
 export class ApiError extends Error {
   constructor(status, message, extra = {}) {
@@ -61,7 +66,13 @@ let lastOfflineReport = 0;
 async function request(method, path, body, opts = {}) {
   const headers = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
-  if (inFrame || bearer) headers['x-app-context'] = 'embedded';
+  if (inFrame) headers['x-app-context'] = 'embedded';
+  // Ask for a bearer copy of the session on every call. It is worth nothing when the cookie
+  // works and everything when it does not: a proxy that drops Set-Cookie, a browser that refuses
+  // storage in a frame, or an http:// device address where a Secure cookie cannot exist. Those
+  // are exactly the "already logged in, still told to log in" cases. Only same-origin code can
+  // read this response, and same-origin code can already call the API with the cookie.
+  headers['x-want-bearer'] = '1';
   if (bearer) headers.authorization = `Bearer ${bearer}`;
   let res;
   try {
@@ -111,6 +122,13 @@ async function request(method, path, body, opts = {}) {
         return request(method, path, body, { ...opts, probed: true });
       }
       if (needsTokenTransport()) message = t('toast.session_blocked');
+      // One tap turns a dead end into an answer: the sheet says which credential, if any,
+      // actually reached the server. Offered whatever the framing, because "already logged in but
+      // told to log in" is the failure people report — and this is what turns it into three
+      // checkable facts instead of a guess about caches.
+      import('./session-check.js')
+        .then((m) => m.offerSessionCheck())
+        .catch(() => {});
     }
 
     if (res.status === 401 && !opts.silent401 && state.user) {

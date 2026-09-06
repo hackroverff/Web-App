@@ -8,6 +8,7 @@ import { page, sheet, toast, pill, notice, kpiCard, statusChip, emptyState, sect
 import { money, money2, timeAgo, shortDate, dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
 import { storageAvailable } from '../core/storage.js';
+import { openSessionCheck } from '../core/session-check.js';
 import { ownerShell, elevateBar, elevate, lockNow, closeShift } from './shared.js';
 
 export function docTitle() {
@@ -119,6 +120,7 @@ export function pinView(root) {
       h('div', { class: 'row', style: 'justify-content:center;gap:10px;margin-top:14px' },
         h('a', { class: 'chip', href: '/', 'data-link': '' }, h('span', { style: 'width:15px', html: icons.chevL }), t('owner.back_to_store')),
         demoBtn,
+        h('button', { class: 'chip', type: 'button', onclick: () => openSessionCheck(), text: t('auth.check_session') }),
         // Counter tablets live inside kiosks and previews; the one thing that must always be
         // reachable is a way to leave the frame, because that is where sessions get dropped.
         inFrame ? h('a', { class: 'chip', href: location.href, target: '_blank', rel: 'noopener' }, t('common.open_new_tab')) : null),

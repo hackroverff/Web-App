@@ -64,8 +64,13 @@ export function createApp() {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'content-type');
+      // Everything the client actually puts on a request, or the preflight passes and the real
+      // call is then rejected by the browser: authorization (token-only clients), x-app-context
+      // (a framed client tells the server to make a Partitioned cookie) and x-want-bearer (the
+      // response mirror, which is what keeps a shopper signed in when a proxy drops Set-Cookie).
+      res.setHeader('Access-Control-Allow-Headers', 'content-type, authorization, x-app-context, x-want-bearer');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Max-Age', '86400'); // one preflight a day, not one per call
     }
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
@@ -122,6 +127,7 @@ export function createApp() {
   // preview iframe or a storage-restricted WebView signed in without weakening the
   // HttpOnly cookie path for everybody else.
   app.use('/api', (req, res, next) => {
+    res.locals.wantBearer = String(req.headers['x-want-bearer'] || '') === '1';
     const send = res.json.bind(res);
     res.json = (body) => {
       if (res.locals.sessionToken && body && typeof body === 'object' && !Array.isArray(body)) {

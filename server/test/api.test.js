@@ -589,6 +589,79 @@ test('framed sessions: cookie upgrade, bearer mirror, CSRF guard', async () => {
   assert.equal(afterLogout.status, 401, 'logout kills the bearer session too');
 });
 
+test('a cross-origin PWA is allowed to send its credentials', async () => {
+  // A Vercel-style split (app on one host, API on another) lives or dies on the preflight: the
+  // browser asks before every authenticated call, and any header the client sends that the answer
+  // does not allow turns into a failed request that never reaches the router.
+  const { config } = await import('../config.js');
+  const was = config.allowedOrigins;
+  config.allowedOrigins = ['https://app.example'];
+  try {
+    const pre = await fetch(`${base}/api/health`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://app.example', 'access-control-request-method': 'GET' },
+    });
+    assert.equal(pre.status, 204);
+    const allow = (pre.headers.get('access-control-allow-headers') || '').toLowerCase();
+    for (const header of ['content-type', 'authorization', 'x-app-context', 'x-want-bearer']) {
+      assert.ok(allow.includes(header), `preflight must allow ${header}, got: ${allow}`);
+    }
+    assert.equal(pre.headers.get('access-control-allow-credentials'), 'true');
+    assert.ok(Number(pre.headers.get('access-control-max-age')) >= 3600, 'preflights should be cached');
+  } finally {
+    config.allowedOrigins = was;
+  }
+});
+
+test('a top-level client can ask for a token copy without weakening its cookie', async () => {
+  // This is the preview-proxy case: Set-Cookie never comes back, so the shopper is anonymous on
+  // the next request even though the login itself succeeded. The client asks for a bearer copy on
+  // every call, and the server hands one over *without* upgrading a first-party cookie to
+  // SameSite=None; Secure — a Secure cookie would be dropped on http://192.168.x.x:4173, which
+  // is how a shop tablet reaches a laptop.
+  const asked = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-want-bearer': '1' },
+    body: JSON.stringify({ mobile: '9840034567', password: 'balaji@123' }),
+  });
+  const body = await asked.json();
+  const cookie = (asked.headers.getSetCookie() || []).join(' ');
+  assert.equal(asked.status, 200);
+  assert.ok(body.session_token && body.session_token.length > 20, 'the token is mirrored when asked for');
+  assert.match(cookie, /SameSite=lax/i, 'the first-party cookie is not forced to None+Secure');
+  assert.ok(!/Secure/i.test(cookie), 'and it stays usable over plain http');
+
+  // Whole flow with no cookie at all — as if Set-Cookie never arrived.
+  const auth = { 'content-type': 'application/json', authorization: `Bearer ${body.session_token}` };
+  const add = await fetch(`${base}/api/cart/items`, { method: 'POST', headers: auth, body: JSON.stringify({ product_id: 3, qty: 6 }) });
+  assert.equal(add.status, 200, 'a write authenticates on the token alone');
+  const cart = await (await fetch(`${base}/api/cart`, { headers: { authorization: `Bearer ${body.session_token}` } })).json();
+  assert.ok(cart.lines.length >= 1, 'and the cart is readable the same way');
+  await fetch(`${base}/api/cart/items/3`, { method: 'DELETE', headers: auth });
+
+  const notAsked = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mobile: '9840034567', password: 'balaji@123' }),
+  });
+  assert.ok(!('session_token' in await notAsked.json()), 'a client that does not ask gets no token either way');
+
+  // BEARER_TOKENS=0 must be the documented hard switch (config is read per call, so flip it here).
+  const { config } = await import('../config.js');
+  const was = config.allowBearer;
+  config.allowBearer = false;
+  try {
+    const off = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-want-bearer': '1' },
+      body: JSON.stringify({ mobile: '9840034567', password: 'balaji@123' }),
+    });
+    assert.ok(!('session_token' in await off.json()), 'BEARER_TOKENS=0 turns the fallback off');
+  } finally {
+    config.allowBearer = was;
+  }
+});
+
 test('session plumbing is introspectable, and browsing is not rate limited', async () => {
   // One shop, one broadband connection, one counter tablet: every customer would otherwise
   // share a single per-IP budget, and reading 57 products spends it. Idempotent catalogue

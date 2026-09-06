@@ -8,6 +8,7 @@ import { buildForm, langToggle, notice, pill, toast, sheet } from '../core/compo
 import { go } from '../core/router.js';
 import { inFrame } from '../core/api.js';
 import { storageAvailable } from '../core/storage.js';
+import { openSessionCheck } from '../core/session-check.js';
 import { sessionGet, sessionRemove, sessionSet } from '../core/storage.js';
 
 export function docTitle() {
@@ -27,25 +28,49 @@ function authShell({ title, sub, children }) {
   // app look broken. `storageAvailable` is false when the browser refuses storage to this frame.
   const framed = inFrame;
   const blocked = !storageAvailable();
-  return h('div', {
-    class: 'keypad-wrap',
-    style: 'background:radial-gradient(120% 80% at 50% 0%, #f2faf5, #ffffff 62%)',
-  },
-  h('div', { style: 'width:min(470px,100%)' },
-    h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:14px' },
-      h('a', { class: 'chip', href: '/', 'data-link': '' }, h('span', { style: 'width:15px', html: icons.back }), t('app.name')),
-      h('div', { class: 'row', style: 'gap:8px' },
-        langToggle(),
-        framed ? h('a', { class: 'chip', href: location.href, target: '_blank', rel: 'noopener' }, t('common.open_new_tab')) : null),
+  return h(
+    'div',
+    { class: 'keypad-wrap', style: 'background:radial-gradient(120% 80% at 50% 0%, #f2faf5, #ffffff 62%)' },
+    h(
+      'div',
+      { style: 'width:min(470px,100%)' },
+      h(
+        'div',
+        { class: 'row', style: 'justify-content:space-between;margin-bottom:14px' },
+        h('a', { class: 'chip', href: '/', 'data-link': '' }, h('span', { style: 'width:15px', html: icons.back }), t('app.name')),
+        h(
+          'div',
+          { class: 'row', style: 'gap:8px' },
+          langToggle(),
+          framed ? h('a', { class: 'chip', href: location.href, target: '_blank', rel: 'noopener' }, t('common.open_new_tab')) : null,
+        ),
+      ),
+      blocked ? h('div', { class: 'notice warn', style: 'margin-bottom:12px', text: t('auth.storage_blocked') }) : null,
+      h(
+        'div',
+        { class: 'card', style: 'padding:18px;box-shadow:var(--shadow-2);border-radius:var(--r-xl)' },
+        h(
+          'div',
+          { class: 'row', style: 'margin-bottom:14px;gap:12px' },
+          h('img', { class: 'brandmark', src: '/img/logo.svg', alt: '', width: 44, height: 44 }),
+          h(
+            'div',
+            {},
+            h('h1', { style: 'font-size:21px', text: title }),
+            sub ? h('div', { class: 'small muted', text: sub }) : null,
+          ),
+        ),
+        ...children,
+      ),
+      // Every gate screen explains the one failure mode this app has: a sign-in that does not
+      // stick. "Check this session" answers it with the server's own reading of the request.
+      h(
+        'div',
+        { class: 'row', style: 'justify-content:center;margin-top:10px' },
+        h('button', { class: 'chip', type: 'button', onclick: () => openSessionCheck(), text: t('auth.check_session') }),
+      ),
     ),
-    blocked
-      ? h('div', { class: 'notice warn', style: 'margin-bottom:12px', text: t('auth.storage_blocked') })
-      : null,
-    h('div', { class: 'card', style: 'padding:18px;box-shadow:var(--shadow-2);border-radius:var(--r-xl)' },
-      h('div', { class: 'row', style: 'margin-bottom:14px;gap:12px' },
-        h('img', { class: 'brandmark', src: '/img/logo.svg', alt: '', width: 44, height: 44 }),
-        h('div', {}, h('h1', { style: 'font-size:21px', text: title }), sub ? h('div', { class: 'small muted', text: sub }) : null)),
-      ...children)));
+  );
 }
 
 /* --------------------------------------------------------------------- login -- */
