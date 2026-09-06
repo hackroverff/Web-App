@@ -38,7 +38,7 @@ import {
 
 export const router = express.Router();
 
-const pinLimiter = rateLimit({ name: 'owner-pin', max: 12, windowMs: 5 * 60_000 });
+const pinLimiter = rateLimit({ name: 'owner-pin', max: config.ownerPinRateMax, windowMs: 5 * 60_000 });
 
 // ------------------------------------------------------------------- access --
 /**

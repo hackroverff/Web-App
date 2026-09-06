@@ -78,6 +78,9 @@ export const config = {
   rateLimitWindowMs: num(process.env.RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000),
   rateLimitMax: num(process.env.RATE_LIMIT_MAX, 120),
   authRateLimitMax: num(process.env.AUTH_RATE_LIMIT_MAX, 15),
+  // The counter keypad is typed by hand in front of a queue, so it gets its own,
+  // slightly kinder budget than the signup/login endpoints.
+  ownerPinRateMax: num(process.env.OWNER_PIN_RATE_MAX, 20),
   // RATE_LIMIT=0 switches every limiter off — handy for the automated smoke run
   // and for a reviewer clicking through the owner screens twice in a minute.
   rateLimitEnabled: bool(process.env.RATE_LIMIT, true),

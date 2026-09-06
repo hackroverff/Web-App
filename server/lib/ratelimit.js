@@ -24,7 +24,9 @@ export function rateLimit({ name, max = config.rateLimitMax, windowMs = config.r
     bucket.count += 1;
     req.rate = { remaining: Math.max(0, max - bucket.count), resetAt: bucket.resetAt };
     if (bucket.count > max) {
-      return next(tooMany('Too many requests from this device. Please try again in a few minutes.'));
+      const minutes = Math.max(1, Math.ceil((bucket.resetAt - now) / 60_000));
+      _res.setHeader('Retry-After', Math.max(1, Math.round((bucket.resetAt - now) / 1000)));
+      return next(tooMany(`Too many attempts from this device — try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`));
     }
     next();
   };
