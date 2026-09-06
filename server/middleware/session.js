@@ -12,7 +12,7 @@
 import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { get, run, insert, update } from '../db/index.js';
-import { parseCookies, serializeCookie, SESSION_COOKIE } from '../lib/cookies.js';
+import { parseCookies, serializeCookie, SESSION_COOKIE, OWNER_COOKIE, cookieNameFor } from '../lib/cookies.js';
 import { forbidden, unauthorized } from '../lib/errors.js';
 import { clientIp } from '../lib/ratelimit.js';
 
@@ -65,15 +65,22 @@ export function createSession({ subject, userId = null, staffId = null, level = 
   const attrs = cookieAttrs(req);
   return {
     token,
-    cookie: serializeCookie(SESSION_COOKIE, token, { maxAge: config.sessionDays * 86_400, ...attrs }),
+    subject,
+    cookie: serializeCookie(cookieNameFor(subject), token, { maxAge: config.sessionDays * 86_400, ...attrs }),
     maxAge: config.sessionDays * 86_400,
   };
 }
 
 export function destroySession(req, res) {
-  const token = bearerToken(req) || parseCookies(req.headers.cookie || '')[SESSION_COOKIE];
+  const cookies = parseCookies(req.headers.cookie || '');
+  const token = bearerToken(req) || cookies[SESSION_COOKIE] || cookies[OWNER_COOKIE];
   if (token) run('UPDATE sessions SET revoked=1 WHERE token_hash=?', [hashToken(token)]);
-  res.append('Set-Cookie', serializeCookie(SESSION_COOKIE, '', { maxAge: 0, ...cookieAttrs(req) }));
+  // Expire the cookie that carried this session. With no session to ask, clear both — a logout
+  // should never leave a credential behind, and doing it twice costs nothing.
+  const names = req.session ? [cookieNameFor(req.session.subject)] : [SESSION_COOKIE, OWNER_COOKIE];
+  for (const name of names) {
+    res.append('Set-Cookie', serializeCookie(name, '', { maxAge: 0, ...cookieAttrs(req) }));
+  }
   res.locals.clearSessionToken = true;
 }
 
@@ -100,32 +107,57 @@ export function setSessionCookie(res, session) {
   }
 }
 
-/** Populate req.session / req.user / req.staff. Never throws. */
+/** Owner-side surfaces: `/api/owner/**` and `/api/admin/**` authenticate the counter, not the shop. */
+const OWNER_ROUTE = /^\/api\/(owner|admin)(\/|$)/;
+export const isOwnerRoute = (req) => OWNER_ROUTE.test(req.path) || OWNER_ROUTE.test(req.originalUrl || '');
+
+/** A session row for the door it was issued at, or null. Never crosses the two. */
+function lookupSession(token, wantSubject) {
+  if (!token) return null;
+  const session = get('SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0', [hashToken(token)]);
+  if (!session || session.subject !== wantSubject) return null;
+  if (new Date(`${session.expires_at}Z`).getTime() < Date.now()) {
+    run('UPDATE sessions SET revoked=1 WHERE token_hash=?', [session.token_hash]);
+    return null;
+  }
+  return session;
+}
+
+/**
+ * Populate req.session / req.user / req.staff. Never throws.
+ *
+ * The shopper and the owner are looked up from separate credentials, so both doors can be open in
+ * one tab (and one framed preview): a customer token can never be read as staff, and an owner
+ * token is only accepted by the owner routes, where it is the one that counts.
+ */
 export function attachIdentity(req, _res, next) {
   req.embedded = isEmbedded(req);
   _res.locals.embedded = req.embedded;
-  const token = bearerToken(req) || parseCookies(req.headers.cookie || '')[SESSION_COOKIE];
   req.session = null;
   req.user = null;
   req.staff = null;
   req.level = 'anonymous';
-  if (!token) return next();
 
-  const session = get('SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0', [hashToken(token)]);
+  const cookies = parseCookies(req.headers.cookie || '');
+  const bearer = bearerToken(req); // one header, so the client sends the token this route wants
+  const ownerSide = isOwnerRoute(req);
+  const session = ownerSide
+    ? lookupSession(bearer, 'owner') ||
+      lookupSession(cookies[OWNER_COOKIE], 'owner') ||
+      // Sessions issued before the two-cookie split still live in the shop cookie; honour them
+      // here rather than logging the counter out, since the subject check keeps it honest.
+      lookupSession(cookies[SESSION_COOKIE], 'owner')
+    : lookupSession(bearer, 'customer') || lookupSession(cookies[SESSION_COOKIE], 'customer');
   if (!session) return next();
-  if (new Date(`${session.expires_at}Z`).getTime() < Date.now()) {
-    run('UPDATE sessions SET revoked=1 WHERE token_hash=?', [session.token_hash]);
-    return next();
-  }
 
   let level = session.level;
-  if (session.subject === 'owner' && level === 'admin' && session.elevated_until) {
-    if (new Date(`${session.elevated_until}Z`).getTime() < Date.now()) {
+  if (session.subject === 'owner' && level === 'admin') {
+    if (!session.elevated_until) {
+      level = 'ops';
+    } else if (new Date(`${session.elevated_until}Z`).getTime() < Date.now()) {
       level = 'ops';
       update('sessions', session.token_hash, { level: 'ops', elevated_until: null }, 'token_hash');
     }
-  } else if (session.subject === 'owner' && level === 'admin' && !session.elevated_until) {
-    level = 'ops';
   }
 
   req.session = { ...session, level };

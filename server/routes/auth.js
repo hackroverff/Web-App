@@ -24,7 +24,7 @@ import {
 } from '../lib/validate.js';
 import { audit } from '../lib/audit.js';
 import { createSession, destroySession, setSessionCookie, publicUser, requireCustomer, revokeUserSessions, isEmbedded, bearerToken } from '../middleware/session.js';
-import { parseCookies, SESSION_COOKIE } from '../lib/cookies.js';
+import { parseCookies, SESSION_COOKIE, OWNER_COOKIE } from '../lib/cookies.js';
 import { loadCart } from '../services/cart.js';
 
 export const router = express.Router();
@@ -209,6 +209,7 @@ router.get('/diag', (req, res) => {
     ok: true,
     embedded: req.embedded ?? isEmbedded(req),
     cookie_present: Boolean(parseCookies(req.headers.cookie || '')[SESSION_COOKIE]),
+    owner_cookie_present: Boolean(parseCookies(req.headers.cookie || '')[OWNER_COOKIE]),
     bearer_present: Boolean(bearerToken(req)),
     session_valid: Boolean(req.session),
     level: req.level,

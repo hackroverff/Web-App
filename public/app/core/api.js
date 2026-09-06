@@ -11,6 +11,12 @@ import { t } from './i18n.js';
 import { localGet, localRemove, localSet, sessionGet, sessionRemove, sessionSet, storageAvailable } from './storage.js';
 
 const TOKEN_KEY = 'smv.session_token';
+// The counter/owner portal is a second, independent session in the same tab. Kept in its own slot
+// for the same reason the server uses its own cookie: with one shared slot, entering the owner PIN
+// overwrote the shopper's token and the next cart write arrived unsigned.
+const OWNER_TOKEN_KEY = 'smv.owner_token';
+
+const isOwnerPath = (path) => /^\/api\/(owner|admin)(\/|$)/.test(path);
 
 export const inFrame = (() => {
   try {
@@ -21,27 +27,38 @@ export const inFrame = (() => {
 })();
 
 /**
- * The cookie-less fallback. Kept in memory *and* both storages: sessionStorage alone dies on a
- * reload in some frames and localStorage is unavailable in others, and either way the user reads
- * it as "I am signed in but it wants me to sign in again". storage.js never throws, so a frame
- * whose storage the browser blocks still works from the in-memory copy.
+ * The cookie-less fallback, one copy per door. Kept in memory *and* both storages: sessionStorage
+ * alone dies on a reload in some frames and localStorage is unavailable in others, and either way
+ * the user reads it as "I am signed in but it wants me to sign in again". storage.js never throws,
+ * so a frame whose storage the browser blocks still works from the in-memory copy.
  */
-function readBearer() {
-  return localGet(TOKEN_KEY) || sessionGet(TOKEN_KEY) || '';
+function readToken(key) {
+  return localGet(key) || sessionGet(key) || '';
 }
 
-let bearer = readBearer();
+const slots = {
+  shop: readToken(TOKEN_KEY),
+  counter: readToken(OWNER_TOKEN_KEY),
+};
 
-export function setBearerToken(token) {
-  bearer = token || '';
-  if (bearer) {
-    localSet(TOKEN_KEY, bearer);
-    sessionSet(TOKEN_KEY, bearer);
+const slotFor = (path) => (isOwnerPath(path) ? 'counter' : 'shop');
+
+/** `token` empty means "this door is signed out" — the slot is removed, not left stale. */
+export function setBearerToken(token, path = '') {
+  const name = slotFor(path);
+  slots[name] = token || '';
+  const key = name === 'counter' ? OWNER_TOKEN_KEY : TOKEN_KEY;
+  if (slots[name]) {
+    localSet(key, slots[name]);
+    sessionSet(key, slots[name]);
   } else {
-    localRemove(TOKEN_KEY);
-    sessionRemove(TOKEN_KEY);
+    localRemove(key);
+    sessionRemove(key);
   }
 }
+
+/** Which token this request should carry — the one for the door being called. */
+const bearerFor = (path) => slots[slotFor(path)];
 
 /**
  * The clients whose cookie can be dropped under them: one shown inside someone else's page, and
@@ -73,6 +90,7 @@ async function request(method, path, body, opts = {}) {
   // are exactly the "already logged in, still told to log in" cases. Only same-origin code can
   // read this response, and same-origin code can already call the API with the cookie.
   headers['x-want-bearer'] = '1';
+  const bearer = bearerFor(path);
   if (bearer) headers.authorization = `Bearer ${bearer}`;
   let res;
   try {
@@ -98,7 +116,10 @@ async function request(method, path, body, opts = {}) {
       data = { raw: text };
     }
   }
-  if (data && typeof data === 'object' && 'session_token' in data) setBearerToken(data.session_token);
+  // The server mirrors a fresh token on the call that created the session and sends an explicit
+  // null on the call that destroyed it; both are aimed at whichever door was being used, so the
+  // shopper's copy survives the counter signing in and vice versa.
+  if (data && typeof data === 'object' && 'session_token' in data) setBearerToken(data.session_token, path);
 
   if (!res.ok) {
     const err = data?.error || {};
@@ -126,6 +147,9 @@ async function request(method, path, body, opts = {}) {
       // actually reached the server. Offered whatever the framing, because "already logged in but
       // told to log in" is the failure people report — and this is what turns it into three
       // checkable facts instead of a guess about caches.
+      // The credential this door presented is dead: drop it, so it cannot shadow the next sign-in
+      // (the bearer copy is read before the cookie, and a stale copy would keep answering).
+      if (bearerFor(path)) setBearerToken('', path);
       import('./session-check.js')
         .then((m) => m.offerSessionCheck())
         .catch(() => {});

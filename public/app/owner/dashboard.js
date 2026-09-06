@@ -23,6 +23,7 @@ export function pinView(root) {
   const error = h('div', { class: 'small', style: 'min-height:20px;text-align:center;color:#ff9d94' });
   const keys = h('div', { class: 'keys' });
   const wrap = h('div', { class: 'keypad-wrap' });
+  let card = null; // assigned when the gate is built below
 
   const paintDots = () => {
     mount(dots, ...Array.from({ length: Math.max(4, pin.length) }, (_, i) => h('i', { class: i < pin.length ? 'on' : '' })));
@@ -55,9 +56,11 @@ export function pinView(root) {
       go('/owner/dashboard');
     } catch (err) {
       error.textContent = err.message;
-      wrap.classList.remove('shake');
-      void wrap.offsetWidth;
-      wrap.classList.add('shake');
+      // Shake the card, not the wrap: the wrap is the full-bleed background, and moving it shows
+      // the page edge behind it.
+      card.classList.remove('shake');
+      void card.offsetWidth;
+      card.classList.add('shake');
       pin = '';
       paintDots();
     } finally {
@@ -108,8 +111,12 @@ export function pinView(root) {
   }
 
   paintDots();
-  mount(root, wrap,
-    h('div', { class: 'keypad-card' },
+  // `mount(node, ...children)` appends *each* argument to node, so the card has to go inside the
+  // wrap here rather than beside it: `.keypad-wrap` is what paints the dark full-height screen and
+  // centres its child, and a sibling card landed on the plain page background instead — the exact
+  // "half the panel is dark" look this page had.
+  mount(wrap,
+    (card = h('div', { class: 'keypad-card' },
       h('div', { class: 'center', style: 'margin-bottom:6px' },
         h('img', { class: 'brandmark', src: '/img/logo.svg', alt: '', width: 54, height: 54, style: 'margin-bottom:8px' }),
         h('h1', { style: 'font-size:20px', text: t('owner.pin_title') }),
@@ -127,7 +134,8 @@ export function pinView(root) {
       !storageAvailable()
         ? h('div', { class: 'notice warn', style: 'margin-top:12px', text: t('auth.storage_blocked') })
         : null,
-      h('p', { class: 'tiny muted center', style: 'margin-top:10px', text: t('owner.pin_hint') })));
+      h('p', { class: 'tiny muted center', style: 'margin-top:10px', text: t('owner.pin_hint') }))));
+  mount(root, wrap);
 
   return () => {
     document.removeEventListener('keydown', onKey);

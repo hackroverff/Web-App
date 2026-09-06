@@ -33,4 +33,13 @@ export function serializeCookie(name, value, opts = {}) {
   return bits.join('; ');
 }
 
+/**
+ * Two credentials, not one. The shop side and the counter side are independent sessions: with a
+ * single cookie name, entering the owner PIN replaced the shopper's cookie in the same tab, and the
+ * next cart write came back "Please sign in to continue." while the app still showed the customer
+ * signed in. Each door sets, reads and clears its own.
+ */
 export const SESSION_COOKIE = 'smv_session';
+export const OWNER_COOKIE = 'smv_owner';
+
+export const cookieNameFor = (subject) => (subject === 'owner' ? OWNER_COOKIE : SESSION_COOKIE);

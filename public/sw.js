@@ -6,7 +6,7 @@
  *   • everything else under /api/ (cart, orders, owner) → network only, never stored
  *   • navigations → network, falling back to the cached shell
  */
-const VERSION = 'smv-v6';
+const VERSION = 'smv-v7';
 const SHELL = [
   '/',
   '/index.html',

@@ -662,6 +662,67 @@ test('a top-level client can ask for a token copy without weakening its cookie',
   }
 });
 
+test('the shop and the counter keep separate sessions in the same tab', async () => {
+  // This is the recurring "Please sign in to continue." in one reproducible step: someone signs in
+  // as a shopper, opens /owner and enters the PIN, then goes back to the cart. There used to be one
+  // cookie for both doors, so the PIN replaced the shopper's session and the next cart write was
+  // anonymous — while the app still showed them signed in.
+  const shopper = await api('POST', '/api/auth/login', { mobile: '9840012345', password: 'priya@123' }, { jar: 'dual' });
+  assert.equal(shopper.status, 200);
+  assert.match(shopper.headers_set || '', /^$/, 'unused field guard');
+  assert.match(jar.get('dual'), /smv_session=/, 'the shop door gets its own cookie');
+
+  const counter = await api('POST', '/api/owner/login', { pin: '4321' }, { jar: 'dual' });
+  assert.equal(counter.status, 200);
+  assert.match(jar.get('dual'), /smv_owner=/, 'the counter door gets its own cookie');
+  assert.match(jar.get('dual'), /smv_session=/, 'and does not overwrite the shopper’s');
+
+  const cart = await api('POST', '/api/cart/items', { product_id: 1, qty: 1 }, { jar: 'dual' });
+  assert.equal(cart.status, 200, 'cart still works after the owner signs in');
+  const dash = await api('GET', '/api/owner/dashboard', undefined, { jar: 'dual' });
+  assert.equal(dash.status, 200, 'the counter works in the same tab');
+  assert.ok(dash.body.shift, 'and it is the real dashboard, not a redirect');
+
+  // Each door signs out alone.
+  const bye = await api('POST', '/api/auth/logout', {}, { jar: 'dual' });
+  assert.equal(bye.status, 200);
+  assert.doesNotMatch(jar.get('dual'), /smv_session=/, 'the shop cookie is gone');
+  assert.match(jar.get('dual'), /smv_owner=/, 'the counter cookie survives the shopper signing out');
+  assert.equal((await api('GET', '/api/owner/dashboard', undefined, { jar: 'dual' })).status, 200);
+  assert.equal((await api('GET', '/api/cart', undefined, { jar: 'dual' })).status, 401);
+
+  // And a credential only opens the door it was issued at — tokens alone, no cookies.
+  const asShopper = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-want-bearer': '1' },
+    body: JSON.stringify({ mobile: '9840012345', password: 'priya@123' }),
+  });
+  const shopToken = (await asShopper.json()).session_token;
+  const asOwner = await fetch(`${base}/api/owner/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-want-bearer': '1' },
+    body: JSON.stringify({ pin: '4321' }),
+  });
+  const ownerBody = await asOwner.json();
+  const ownerToken = ownerBody.session_token;
+  const headers = (t) => ({ 'content-type': 'application/json', authorization: `Bearer ${t}` });
+
+  assert.notEqual(shopToken, ownerToken, 'two doors, two credentials');
+  assert.equal((await fetch(`${base}/api/owner/dashboard`, { headers: headers(shopToken) })).status, 401, 'a shopper token is not staff');
+  const crossed = await fetch(`${base}/api/cart`, { headers: headers(ownerToken) });
+  assert.equal(crossed.status, 401, 'an owner token does not buy groceries either');
+  assert.equal((await fetch(`${base}/api/owner/dashboard`, { headers: headers(ownerToken) })).status, 200);
+  assert.equal((await fetch(`${base}/api/cart/items`, { method: 'POST', headers: headers(shopToken), body: JSON.stringify({ product_id: 1, qty: 1 }) })).status, 200);
+
+  // The mirror is per door: signing the counter out clears the counter copy and leaves the shop's
+  // alone, which is what lets one token slot per side work in a frame.
+  const ownerOut = await fetch(`${base}/api/owner/logout`, { method: 'POST', headers: { ...headers(ownerToken), 'x-want-bearer': '1' } });
+  const ownerOutBody = await ownerOut.json();
+  assert.equal(ownerOut.status, 200);
+  assert.equal(ownerOutBody.session_token, null, 'logout answers with an explicit clear');
+  assert.equal((await fetch(`${base}/api/auth/diag`, { headers: headers(shopToken) })).status, 200, 'the shopper is still signed in');
+  await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: headers(shopToken) });
+});
 test('session plumbing is introspectable, and browsing is not rate limited', async () => {
   // One shop, one broadband connection, one counter tablet: every customer would otherwise
   // share a single per-IP budget, and reading 57 products spends it. Idempotent catalogue

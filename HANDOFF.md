@@ -31,9 +31,21 @@ it is the server's 401 body:
 - `server/middleware/session.js:149` — `requireCustomer()` raises it when `req.user` is empty.
   Every cart/order write goes through it (`server/routes/cart.js`, `server/routes/orders.js`).
 
-So the request **was** sent and the server did not recognise the session. Two families of causes:
-(A) the shell being executed is an older build than the one in this repo (see §5), or (B) the
-credential did not survive the trip (see §3–§4).
+So the request **was** sent and the server did not recognise the session. Three families of causes,
+in the order they were found:
+
+- **(A) The shell being executed is older than this repo.** See §5. Always check this first.
+- **(B) The credential did not survive the trip** — framing, storage rules, a proxy. See §3–§4.
+- **(C) One credential was shared by two doors** (fixed, §3.1). This is the one that made the error
+  come back after every other fix, because it is not a transport problem at all.
+
+A theory worth killing early: the client adopts `session_token` from any response body that
+carries it, and `server/app.js` injects that key in exactly two situations — a session was created
+on this request (real token), or `destroySession()` ran (explicit `null`, meaning "this door just
+closed"). Public endpoints never send `session_token: null`. So "the client wipes its token on a
+public response" cannot happen here, and a guard that ignores a `null` would *break* sign-out: the
+bearer copy is read before the cookie, so a token the server has already revoked would keep being
+presented after the user logs out and signs back in.
 
 ## 3. How a session is carried (the whole model)
 
@@ -41,7 +53,8 @@ credential did not survive the trip (see §3–§4).
    `createSession()` → a random token. The DB stores only `token_hash = sha256(cookieSecret|token)`,
    so a leaked DB cannot be replayed.
 2. The token is returned to the browser in **two** channels:
-   - `Set-Cookie: smv_session=<token>` — attributes from `cookieAttrs(req)`:
+   - `Set-Cookie: smv_session=<token>` for the shop, `smv_owner=<token>` for the counter
+     (`cookieNameFor(subject)`, see §3.1) — attributes from `cookieAttrs(req)`:
      `SameSite=lax` for a normal tab; `SameSite=None; Secure; Partitioned` when the request is
      judged **embedded** (`isEmbedded(req)`: `x-app-context: embedded`, or `sec-fetch-dest:
      iframe|frame|embed|object`, or `sec-fetch-site: cross-site|same-site-ancestor`).
@@ -51,14 +64,49 @@ credential did not survive the trip (see §3–§4).
      sends on **every** call. That is what keeps a shopper signed in when a proxy drops
      `Set-Cookie`, when the frame may not store anything, or when the shop is opened at
      `http://192.168.x.x:4173` from a tablet (a `Secure` cookie cannot exist there).
-3. `attachIdentity` (`server/middleware/session.js`) then reads either credential —
-   `Authorization: Bearer <token>` takes precedence over the cookie — and populates `req.user`,
-   `req.staff`, `req.session`. Owner `admin` sessions lazily downgrade to `ops` after
-   `config.elevatedMinutes`, which is why some owner writes 403 rather than 401 (403 is *not* a
-   sign-in failure; the client's 401-replay logic must not try to "fix" it).
-4. On the client, the mirrored token is kept in memory **and** in `localStorage`/`sessionStorage`
-   (`public/app/core/storage.js`), because in a frame `localStorage` can throw and
-   `sessionStorage` dies with the tab.
+3. `attachIdentity` (`server/middleware/session.js`) reads the credential for the door being
+   called — `Authorization: Bearer` wins over the cookie (they carry the same value for the same
+   door anyway) — and populates `req.user`, `req.staff`, `req.session`. `req.level` drives the
+   owner's lazy `admin`→`ops` downgrade past `config.elevatedMinutes`, which is why some owner
+   writes are 403 (403 is *not* a sign-in failure; the client's 401 probe-and-replay must leave
+   it alone).
+
+### 3.1 Two doors, two credentials (the actual cause of the recurring error)
+
+The app holds a shopper identity (`state.user`) and a counter identity (`state.owner`) **at the
+same time** — the preview and any phone/desktop used by the shop owner do exactly that: sign in,
+shop, then open `/owner` and enter the PIN, then go back to the cart. There used to be one cookie
+(`smv_session`) and one bearer slot, so the owner PIN *replaced* the shopper's session. The next
+cart write carried the owner credential, `attachIdentity` populated `req.staff` and left `req.user`
+empty, and `requireCustomer` answered 401 "Please sign in to continue." — with the UI still showing
+the customer signed in. Reproduce:
+
+```
+login as 9840012345 → POST /api/cart/items 200 → POST /api/owner/login (pin) 200
+→ POST /api/cart/items → 401   (this was the bug)
+```
+
+The fix is symmetrical and is what to preserve if you touch any of this:
+
+- `server/lib/cookies.js`: `SESSION_COOKIE` (customer) + `OWNER_COOKIE` = `smv_owner`, with
+  `cookieNameFor(subject)`. Each login sets its own; `destroySession` expires only the cookie that
+  carried the session being revoked (both, if it cannot tell — a logout must never leave a
+  credential behind).
+- `attachIdentity` resolves each door separately and **validates the subject**, so a customer token
+  can never be read as staff and an owner token can never buy groceries (both give 401, by
+  design). Owner routes are `/^\/api\/(owner|admin)(\/|$)/`.
+- `public/app/core/api.js`: two bearer slots (`smv.session_token`, `smv.owner_token`), and the one
+  sent is chosen by the request path. The 401 handler clears only the slot for the door that was
+  refused.
+- `GET /api/auth/diag` reports `owner_cookie_present` alongside `cookie_present`, which is how you
+  tell a missing credential from a credential aimed at the wrong door.
+- Covered by `npm test`: *"the shop and the counter keep separate sessions in the same tab."*
+
+- On the client, each door's mirrored token is kept in memory **and** in storage
+  (`public/app/core/storage.js`): in a frame `localStorage` can throw and `sessionStorage` dies
+  with the tab, and either failure reads as "signed in, told to sign in".
+- Legacy rows: a session issued before the split sits in `smv_session` with `subject='owner'`, and
+  owner routes still accept it (the subject check keeps that honest), so the upgrade logs nobody out.
 
 Turn the body-mirror off entirely with `BEARER_TOKENS=0` (then framed clients must be able to keep
 a cookie or they cannot sign in — that switch is for production hardening, not for debugging).
@@ -131,6 +179,7 @@ Corollary: **never** reintroduce cache-first for unhashed code, and never put re
 | `cookie_present:true, session_valid:true` | server is fine | whatever you saw came from an old build → §5 |
 | `cookie_present:false, bearer_present:true, session_valid:true` | cookie not kept, token path working | expected inside a locked-down frame; nothing to fix |
 | `cookie_present:false, bearer_present:false` | nothing came back | browser blocked storage (check `storageAvailable()` / the app's warn banner), or a proxy stripped `Set-Cookie`, or `COOKIE_SECRET` changed → sessions revoked → sign in again |
+| `session_valid:true, level:"ops"` (or `signed_in_as` is the owner) **on a shop request** | the tab is presenting the counter's credential | that was §3.1; if it recurs, look for a merged credential again |
 | `session_valid:false, cookie_present:true` | token is real but unknown to this DB | ephemeral disk (serverless `/tmp`): a different instance answers. Not an auth bug — the storage is (see `DEPLOY.md`) |
 | `embedded:true` with `policy.secure_cookies:false` and no TLS | `SameSite=None` without `Secure` | the browser refuses to store that cookie; serve the app over https, or leave the frame |
 | `request.forwarded_host` differs from `request.host` | a proxy rewrote the host | the CSRF guard in `server/app.js` trusts the forwarded host; a mismatch makes writes fail in ways that look like auth |
@@ -138,6 +187,11 @@ Corollary: **never** reintroduce cache-first for unhashed code, and never put re
 
 ## 7. Decisions already made — do not re-litigate
 
+- There is **one credential per door**, in the client and in the browser. Do not merge the shop and
+  counter sessions back into a single cookie or a single bearer slot "for simplicity" — that
+  re-creates the reported bug (§3.1).
+- A `session_token: null` in a response body is a *command* to clear that door's copy, not a bug
+  (§2). Do not add a truthiness guard around adoption.
 - A bearer token does **not** imply an embedded client. Framing decides cookie attributes;
   `x-want-bearer` decides whether the body carries a copy.
 - `x-app-context: embedded` is sent only when `window.self !== window.top`.
@@ -145,6 +199,11 @@ Corollary: **never** reintroduce cache-first for unhashed code, and never put re
   (`'session_token' in data`), so a token issued by login/verify/owner-login is never lost.
 - Owner elevation failures are 403; the client's 401 probe-and-replay must not treat them as
   sign-in loss.
+- `mount(node, ...children)` appends **each** argument to `node`, so a screen built as
+  `mount(root, wrap, card)` puts `card` beside the wrapper, not inside it. The PIN gate looked broken
+  for exactly this reason: `.keypad-wrap` paints the dark full-height screen and `.keypad-wrap > *`
+  centres the card, so a sibling card sat on the white page and the `.shake` feedback moved the
+  background instead of the card. Nest it (`mount(wrap, card); mount(root, wrap)`).
 - Gate screens (owner PIN, sign-in) use an in-flow `min-height:100dvh` flex wrapper plus
   `body:has(.keypad-card)`; `position:fixed` there is unreliable because view transitions animate
   with `both`, which makes transformed/filter/`contain` ancestors the containing block (that is how
