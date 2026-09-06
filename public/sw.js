@@ -6,7 +6,7 @@
  *   • everything else under /api/ (cart, orders, owner) → network only, never stored
  *   • navigations → network, falling back to the cached shell
  */
-const VERSION = 'smv-v3';
+const VERSION = 'smv-v4';
 const SHELL = [
   '/',
   '/index.html',
@@ -22,6 +22,7 @@ const SHELL = [
   '/app/core/icons.js',
   '/app/core/api.js',
   '/app/core/store.js',
+  '/app/core/storage.js',
   '/app/core/i18n.js',
   '/app/core/format.js',
   '/app/core/components.js',

@@ -8,6 +8,7 @@ import { startRouter, go, refreshView } from './core/router.js';
 import { t } from './core/i18n.js';
 import { toast } from './core/components.js';
 import { api } from './core/api.js';
+import { localGet, localSet, sessionGet, sessionSet } from './core/storage.js';
 
 const SPLASH_MS_FIRST = 1700; // as specified: 1.5–2s launch screen
 const SPLASH_MS_RETURN = 480;
@@ -18,7 +19,7 @@ const splash = document.getElementById('splash');
 const appEl = document.getElementById('app');
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const firstView = !sessionStorage.getItem('smv.seen');
+const firstView = !sessionGet('smv.seen');
 const wait = (ms) => new Promise((r) => setTimeout(r, reduced ? Math.min(ms, 240) : ms));
 
 async function boot() {
@@ -42,7 +43,7 @@ async function boot() {
   const minimum = firstView ? SPLASH_MS_FIRST : SPLASH_MS_RETURN;
   if (elapsed < minimum) await wait(minimum - elapsed);
 
-  sessionStorage.setItem('smv.seen', '1');
+  sessionSet('smv.seen', '1');
   splash.classList.add('out');
   startRouter(appEl);
   setTimeout(() => splash.remove(), 520);
@@ -145,7 +146,7 @@ function offerInstall() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     setDeferred(e);
-    if (!localStorage.getItem('smv.install-dismissed')) {
+    if (!localGet('smv.install-dismissed')) {
       toast('Install Sathvika MV for one-tap reordering', {
         kind: 'ok',
         ms: 9000,
@@ -160,7 +161,7 @@ function offerInstall() {
     }
   });
   window.addEventListener('appinstalled', () => {
-    localStorage.setItem('smv.install-dismissed', '1');
+    localSet('smv.install-dismissed', '1');
     setDeferred(null);
     toast('Installed — the catalogue now works offline too.', { kind: 'ok' });
   });

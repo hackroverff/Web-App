@@ -6,6 +6,9 @@ import { state, set } from '../core/store.js';
 import { api } from '../core/api.js';
 import { buildForm, langToggle, notice, pill, toast, sheet } from '../core/components.js';
 import { go } from '../core/router.js';
+import { inFrame } from '../core/api.js';
+import { storageAvailable } from '../core/storage.js';
+import { sessionGet, sessionRemove, sessionSet } from '../core/storage.js';
 
 export function docTitle() {
   return 'Sign in';
@@ -19,6 +22,11 @@ const DEMO = [
 ];
 
 function authShell({ title, sub, children }) {
+  // A framed preview (device preview, kiosk embed, an iframe in a review tool) is where sessions
+  // get awkward, so give people a way out and tell them what is happening instead of letting the
+  // app look broken. `storageAvailable` is false when the browser refuses storage to this frame.
+  const framed = inFrame;
+  const blocked = !storageAvailable();
   return h('div', {
     class: 'keypad-wrap',
     style: 'background:radial-gradient(120% 80% at 50% 0%, #f2faf5, #ffffff 62%)',
@@ -26,7 +34,13 @@ function authShell({ title, sub, children }) {
   h('div', { style: 'width:min(470px,100%)' },
     h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:14px' },
       h('a', { class: 'chip', href: '/', 'data-link': '' }, h('span', { style: 'width:15px', html: icons.back }), t('app.name')),
-      langToggle()),
+      h('div', { class: 'row', style: 'gap:8px' },
+        langToggle(),
+        framed ? h('a', { class: 'chip', href: location.href, target: '_blank', rel: 'noopener' }, t('common.open_new_tab')) : null),
+    ),
+    blocked
+      ? h('div', { class: 'notice warn', style: 'margin-bottom:12px', text: t('auth.storage_blocked') })
+      : null,
     h('div', { class: 'card', style: 'padding:18px;box-shadow:var(--shadow-2);border-radius:var(--r-xl)' },
       h('div', { class: 'row', style: 'margin-bottom:14px;gap:12px' },
         h('img', { class: 'brandmark', src: '/img/logo.svg', alt: '', width: 44, height: 44 }),
@@ -160,7 +174,7 @@ export function registerView(root, { query }) {
         onSubmit: async (values, { setError }) => {
           try {
             const res = await api.post('/api/auth/register', { ...values, account_type: accountType, lang: state.lang });
-            sessionStorage.setItem('smv.verify', JSON.stringify({ mobile: res.mobile, otp: res.otp?.debug_otp || null }));
+            sessionSet('smv.verify', JSON.stringify({ mobile: res.mobile, otp: res.otp?.debug_otp || null }));
             go(`/verify?mobile=${encodeURIComponent(res.mobile)}`);
           } catch (err) {
             if (err.fields?.confirm_password) setError('confirm_password', err.message);
@@ -189,7 +203,7 @@ export function registerView(root, { query }) {
 
 /* -------------------------------------------------------------------- verify -- */
 export function verifyView(root, { query }) {
-  const stored = safeParse(sessionStorage.getItem('smv.verify')) || {};
+  const stored = safeParse(sessionGet('smv.verify')) || {};
   const mobile = query.mobile || stored.mobile || '';
   const debugOtp = stored.otp || null;
 
@@ -222,7 +236,7 @@ export function verifyView(root, { query }) {
     try {
       const res = await api.post('/api/auth/resend-otp', { mobile, purpose: 'register' });
       if (res.otp?.debug_otp) {
-        sessionStorage.setItem('smv.verify', JSON.stringify({ mobile, otp: res.otp.debug_otp }));
+        sessionSet('smv.verify', JSON.stringify({ mobile, otp: res.otp.debug_otp }));
         code.value = res.otp.debug_otp;
         mount(hint, notice('info', t('auth.otp_demo'), h('div', { class: 'mono', style: 'font-size:20px;letter-spacing:.3em;margin-top:4px', text: res.otp.debug_otp })));
       } else {
@@ -241,7 +255,7 @@ export function verifyView(root, { query }) {
     try {
       const res = await api.post('/api/auth/verify', { mobile, code: value });
       set({ user: res.user, cart: res.cart, settings: res.settings });
-      sessionStorage.removeItem('smv.verify');
+      sessionRemove('smv.verify');
       toast(res.message || 'Verified', { kind: 'ok' });
       go(res.user.wholesale_pending ? '/profile' : '/shop');
     } catch (err) {

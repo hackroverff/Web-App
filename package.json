@@ -14,7 +14,7 @@
     "reset": "node --no-warnings=ExperimentalWarning server/seed/index.js --reset",
     "test": "node --no-warnings=ExperimentalWarning server/test/api.test.js",
     "smoke": "node --no-warnings=ExperimentalWarning scripts/smoke-frontend.mjs",
-    "start:preview": "FRAME_ANCESTORS=\"'self' *\" node --no-warnings=ExperimentalWarning server/index.js",
+    "start:preview": "FRAME_ANCESTORS=\"'self' *\" RATE_LIMIT_MAX=600 node --no-warnings=ExperimentalWarning server/index.js",
     "logo": "node --no-warnings=ExperimentalWarning scripts/build-logo.js"
   },
   "dependencies": {

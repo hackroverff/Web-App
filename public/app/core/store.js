@@ -1,4 +1,5 @@
 /** App state + a couple of actions. Deliberately tiny: views own their local state. */
+import { localGet, localSet } from './storage.js';
 const LS_LANG = 'smv.lang';
 
 export const state = {
@@ -6,7 +7,7 @@ export const state = {
   cart: null,
   settings: null,
   bootstrap: null,
-  lang: localStorage.getItem(LS_LANG) || 'en',
+  lang: localGet(LS_LANG) || 'en',
   offline: !navigator.onLine,
   booted: false,
   owner: { signedIn: false, level: 'anonymous', staff: null, shift: null, dashboard: null, session: null },
@@ -37,7 +38,7 @@ export function subscribe(fn) {
 
 export function setLang(lang) {
   state.lang = lang === 'ta' ? 'ta' : 'en';
-  localStorage.setItem(LS_LANG, state.lang);
+  localSet(LS_LANG, state.lang);
   document.documentElement.lang = state.lang;
   set({});
 }

@@ -6,7 +6,7 @@ import express from 'express';
 import path from 'node:path';
 import { config, PUBLIC_DIR, storageEphemeral } from './config.js';
 import { attachIdentity } from './middleware/session.js';
-import { rateLimit } from './lib/ratelimit.js';
+import { rateLimit, clientIp } from './lib/ratelimit.js';
 import { AppError } from './lib/errors.js';
 import { router as authRouter } from './routes/auth.js';
 import { router as catalogRouter } from './routes/catalog.js';
@@ -99,8 +99,23 @@ export function createApp() {
     if (!req.is('application/json')) req.body = req.body || {};
     next();
   });
-  app.use(rateLimit({ name: 'api' }));
+  // Reads that are idempotent, cacheable and boring do not need a budget: browsing 57
+  // products (plus the service worker revalidating) would otherwise spend the whole
+  // allowance of a shared connection and lock a paying customer out mid-cart.
+  const isCheapRead = (req) =>
+    req.method === 'GET' && (/^\/api\/catalog(\/|$)/.test(req.path) || req.path === '/api/health' || req.path === '/api/auth/diag');
+
+  // Session first, budget second: a signed-in device gets its own bucket instead of sharing
+  // one IP with the whole shop (counter tablet, owner laptop and every customer behind the
+  // same broadband). Attempts at *getting* a session stay IP-keyed in the auth/PIN limiters.
   app.use(attachIdentity);
+  app.use(
+    rateLimit({
+      name: 'api',
+      skip: isCheapRead,
+      keyFn: (req) => (req.session ? `session:${req.session.id}` : clientIp(req)),
+    }),
+  );
 
   // A session cookie set for an embedded client is mirrored into the JSON body as
   // `session_token`, which the client then sends as Authorization: Bearer. That keeps a

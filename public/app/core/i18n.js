@@ -313,7 +313,16 @@ const DICT = {
   'offline.banner': ['Offline — showing cached catalogue', 'இணைப்பு இல்லை — சேமித்த பட்டியல்'],
   'closed.banner': ['Shop closed — ordering is paused', 'கடை மூடியுள்ளது — ஆர்டர் இல்லை'],
   'offline.cannot_order': ['You are offline, so the order cannot be sent.', 'இணைப்பு இல்லை, ஆர்டர் அனுப்ப முடியாது.'],
+  'common.open_new_tab': ['Open in a new tab', 'புதிய தாவலில் திற'],
+  'auth.storage_blocked': [
+    'This frame cannot store a session, so the app keeps you signed in with a token that lasts as long as this tab. Opening the app in its own tab keeps you signed in permanently.',
+    'இந்த ஃப்ரேம் செஷனை சேமிக்க முடியாது; எனவே இந்த டேப் அழியும் வரை டோக்கன் மூலம் நீங்கள் உள்நுழைந்த நிலையில் இருப்பீர்கள். ஆப்ஸை தனி டேப்பில் திறந்தால் நிரந்தரமாக நினைவில் இருக்கும்.',
+  ],
   'toast.login_first': ['Please sign in to continue', 'தொடர உள்நுழையவும்'],
+  'toast.session_blocked': [
+    'Your browser is not keeping this session — storage is blocked for this frame. Open the app in its own tab (or allow cookies for this site) to stay signed in.',
+    'உங்கள் பிரவுசர் இந்த செஷனை சேமிக்கவில்லை — இந்த ஃப்ரேமில் சேமிப்பு தடை செய்யப்பட்டுள்ளது. உள்நுழைந்த நிலையில் இருக்க, ஆப்ஸை தனி டேப்பில் திறக்கவும் (அல்லது இந்த தளத்திற்கு குக்கீகளை அனுமதிக்கவும்).',
+  ],
   'install.hint': ['Add to home screen for the app experience', 'ஹோம் ஸ்க்ரீனில் சேர்க்க'],
   /* ---- owner + admin + profile screens (added with the views) ---- */
   'appr.pending': ['Pending verification', 'சரிபார்ப்பில் உள்ளது'],

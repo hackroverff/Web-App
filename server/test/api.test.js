@@ -533,6 +533,9 @@ test('framed sessions: cookie upgrade, bearer mirror, CSRF guard', async () => {
   assert.equal(framed.status, 200, 'framed login still works');
   assert.match(cookie, /SameSite=none/i, 'framed client gets a SameSite=None cookie');
   assert.match(cookie, /Secure/i, '…and it is marked Secure, as the browser demands');
+  // Without CHIPS partitioning a browser that blocks third-party cookies drops this Set-Cookie
+  // outright, and the shopper sees "Please sign in to continue" one request after signing in.
+  assert.match(cookie, /Partitioned/i, '…and partitioned, so a cross-site frame may store it at all');
   const token = framedBody.session_token;
   assert.ok(token && token.length > 20, 'the response mirrors a bearer session token');
 
@@ -567,10 +570,64 @@ test('framed sessions: cookie upgrade, bearer mirror, CSRF guard', async () => {
   const plainCookie = (plain.headers.getSetCookie() || []).join(' ');
   const plainBody = await plain.json();
   assert.match(plainCookie, /SameSite=lax/i, 'top-level visitors keep the Lax cookie');
+  assert.ok(!/Partitioned/i.test(plainCookie), 'a top-level session is not partitioned — it is a normal cookie');
   assert.ok(!('session_token' in plainBody), 'no token is handed out when it is not needed');
+
+  // And when the frame cannot keep any storage at all, the cookie is the only transport:
+  // replaying it without a bearer header or an X-App-Context hint must still authenticate.
+  const framedCookie = /smv_session=([^;]*)/.exec(cookie)[1];
+  const cookieOnly = await fetch(`${base}/api/cart/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: `smv_session=${framedCookie}` },
+    body: JSON.stringify({ product_id: 2, qty: 1 }),
+  });
+  assert.equal(cookieOnly.status, 200, 'the framed cookie authenticates a write on its own');
 
   // Revocation has to apply to both transports.
   await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
   const afterLogout = await fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal(afterLogout.status, 401, 'logout kills the bearer session too');
+});
+
+test('session plumbing is introspectable, and browsing is not rate limited', async () => {
+  // One shop, one broadband connection, one counter tablet: every customer would otherwise
+  // share a single per-IP budget, and reading 57 products spends it. Idempotent catalogue
+  // reads are exempt; writes and auth attempts still are not.
+  const { rateLimit } = await import('../lib/ratelimit.js');
+  const { config } = await import('../config.js');
+  const wasEnabled = config.rateLimitEnabled;
+  config.rateLimitEnabled = true;
+  try {
+    const mw = rateLimit({ name: 'unit-skip', max: 3, windowMs: 60_000, skip: (req) => req.method === 'GET' });
+    const ask = (method) => {
+      let passed = false;
+      // next(err) means "refused", so the flag has to look at the argument, not the call.
+      mw({ method, path: '/api/catalog/products', headers: {}, socket: { remoteAddress: '9.9.9.9' } }, { setHeader() {} }, (err) => { passed = !err; });
+      return passed;
+    };
+    for (let i = 0; i < 40; i += 1) assert.equal(ask('GET'), true, 'a skipped request never spends budget');
+    assert.equal(ask('POST'), true);
+    assert.equal(ask('POST'), true);
+    assert.equal(ask('POST'), true);
+    assert.equal(ask('POST'), false, 'the fourth write inside a 3-per-window bucket is refused');
+  } finally {
+    config.rateLimitEnabled = wasEnabled;
+  }
+
+  // "Signed in, but it says I am not" should be answerable with one GET, not a debugger.
+  const anon = await (await fetch(`${base}/api/auth/diag`)).json();
+  assert.equal(anon.ok, true);
+  assert.equal(anon.session_valid, false, 'anonymous diag reports no session');
+  assert.equal(anon.cookie_present, false);
+  assert.equal(anon.bearer_present, false);
+  assert.equal(anon.policy.partitioned_when_embedded, true);
+  assert.ok(Array.isArray(anon.policy.allowed_origins), 'the CORS allow-list is visible for auditing');
+  assert.match(anon.request.storage, /persistent|ephemeral/, 'the deployment can see whether its disk will survive');
+
+  const framed = await fetch(`${base}/api/auth/diag`, { headers: { 'x-app-context': 'embedded' } });
+  assert.equal((await framed.json()).embedded, true, 'the framed context is reported honestly');
+
+  const live = await api('GET', '/api/auth/diag', undefined, { jar: 'default' });
+  assert.equal(live.status, 200);
+  assert.equal(live.body.cookie_present, true, 'the jar we have been using is the one the server sees');
 });

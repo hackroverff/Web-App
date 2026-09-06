@@ -11,9 +11,14 @@ setInterval(() => {
   }
 }, 60_000).unref?.();
 
-export function rateLimit({ name, max = config.rateLimitMax, windowMs = config.rateLimitWindowMs, keyFn } = {}) {
+export function rateLimit({ name, max = config.rateLimitMax, windowMs = config.rateLimitWindowMs, keyFn, skip } = {}) {
   return (req, _res, next) => {
     if (!config.rateLimitEnabled) return next();
+    // `skip` exempts traffic that is neither expensive nor abusable. Without it a shopper
+    // paging through the catalogue burns the whole per-IP budget and gets locked out of
+    // their own cart — and behind a shared NAT/proxy (device preview, one shop, one line)
+    // the whole store shares that one bucket.
+    if (skip && skip(req)) return next();
     const key = `${name || 'global'}:${keyFn ? keyFn(req) : clientIp(req)}`;
     const now = Date.now();
     let bucket = buckets.get(key);

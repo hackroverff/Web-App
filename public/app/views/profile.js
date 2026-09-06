@@ -7,6 +7,7 @@ import { api } from '../core/api.js';
 import { page, pill, notice, toast, sheet, buildForm, section, confirmSheet, statusChip } from '../core/components.js';
 import { money2, shortDate, initials } from '../core/format.js';
 import { go } from '../core/router.js';
+import { localGet, localSet } from '../core/storage.js';
 
 export function docTitle() {
   return t('nav.profile');
@@ -197,11 +198,12 @@ function applyWholesale(resubmit) {
 
 /* ------------------------------------------------------------------ settings -- */
 function toggleRow(iconName, label, sub, key, defaultOn) {
-  const on = localStorage.getItem(`smv.pref.${key}`) === null ? defaultOn : localStorage.getItem(`smv.pref.${key}`) === '1';
+  const stored = localGet(`smv.pref.${key}`);
+  const on = stored === null ? defaultOn : stored === '1';
   const input = h('input', { type: 'checkbox', checked: on });
   const wrap = h('label', { class: 'switch' }, input, h('span', { text: label }));
   input.addEventListener('change', () => {
-    localStorage.setItem(`smv.pref.${key}`, input.checked ? '1' : '0');
+    localSet(`smv.pref.${key}`, input.checked ? '1' : '0');
     toast(`${label} ${input.checked ? t('profile.on') : t('profile.off')}`, { kind: 'ok' });
   });
   return h('div', { class: 'listrow' },

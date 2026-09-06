@@ -5,7 +5,7 @@
  * `pending_verification` and see retail prices until the owner approves them.
  */
 import express from 'express';
-import { config } from '../config.js';
+import { config, storageEphemeral } from '../config.js';
 import { all, get, insert, run, update, tx, settings, getBoolSetting, getNumberSetting, getSetting } from '../db/index.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { issueOtp, verifyOtp } from '../lib/otp.js';
@@ -23,7 +23,8 @@ import {
   EMAIL_RE,
 } from '../lib/validate.js';
 import { audit } from '../lib/audit.js';
-import { createSession, destroySession, setSessionCookie, publicUser, requireCustomer, revokeUserSessions } from '../middleware/session.js';
+import { createSession, destroySession, setSessionCookie, publicUser, requireCustomer, revokeUserSessions, isEmbedded, bearerToken } from '../middleware/session.js';
+import { parseCookies, SESSION_COOKIE } from '../lib/cookies.js';
 import { loadCart } from '../services/cart.js';
 
 export const router = express.Router();
@@ -196,6 +197,40 @@ router.post('/logout', (req, res) => {
 router.get('/me', (req, res, next) => {
   if (!req.user) return next(unauthorized('Not signed in.'));
   res.json({ user: publicUser(req.user), cart: loadCart(req.user.id, req.user), settings: clientSettings() });
+});
+
+/**
+ * "I am signed in but it says I am not" — this answers that without a debugger. It reports what
+ * the server can see about *this* request's session plumbing: no secrets, no user data, just
+ * which credentials arrived and how the framing was judged. Safe to open in a preview iframe.
+ */
+router.get('/diag', (req, res) => {
+  res.json({
+    ok: true,
+    embedded: req.embedded ?? isEmbedded(req),
+    cookie_present: Boolean(parseCookies(req.headers.cookie || '')[SESSION_COOKIE]),
+    bearer_present: Boolean(bearerToken(req)),
+    session_valid: Boolean(req.session),
+    level: req.level,
+    signed_in_as: req.user ? publicUser(req.user).mobile : req.staff ? req.staff.username : null,
+    policy: {
+      same_site_auto: config.sameSiteAuto,
+      base_same_site: config.sameSite,
+      secure_cookies: config.secureCookies,
+      bearer_tokens: config.allowBearer,
+      partitioned_when_embedded: true,
+      allowed_origins: config.allowedOrigins,
+    },
+    request: {
+      host: req.headers.host || null,
+      forwarded_host: req.headers['x-forwarded-host'] || null,
+      origin: req.headers.origin || null,
+      sec_fetch_site: req.headers['sec-fetch-site'] || null,
+      sec_fetch_dest: req.headers['sec-fetch-dest'] || null,
+      storage: storageEphemeral ? 'ephemeral' : 'persistent',
+    },
+    rate: req.rate ? { remaining: req.rate.remaining } : null,
+  });
 });
 
 // -------------------------------------------------------- password recovery --

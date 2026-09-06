@@ -7,6 +7,8 @@
  * into the response body and we replay it as a bearer token — see server/middleware/session.js.
  */
 import { state, set } from './store.js';
+import { t } from './i18n.js';
+import { localGet, localRemove, localSet, sessionGet, sessionRemove, sessionSet } from './storage.js';
 
 const TOKEN_KEY = 'smv.session_token';
 
@@ -18,20 +20,31 @@ export const inFrame = (() => {
   }
 })();
 
-let bearer = '';
-try {
-  bearer = sessionStorage.getItem(TOKEN_KEY) || '';
-} catch {
-  /* storage disabled — the cookie path still works when it is allowed */
+/**
+ * The cookie-less fallback. Kept in memory *and* both storages: sessionStorage alone dies on a
+ * reload in some frames and localStorage is unavailable in others, and either way the user reads
+ * it as "I am signed in but it wants me to sign in again". storage.js never throws, so a frame
+ * whose storage the browser blocks still works from the in-memory copy.
+ */
+function readBearer() {
+  return localGet(TOKEN_KEY) || sessionGet(TOKEN_KEY) || '';
 }
+
+let bearer = readBearer();
 
 export function setBearerToken(token) {
   bearer = token || '';
-  try {
-    if (bearer) sessionStorage.setItem(TOKEN_KEY, bearer);
-    else sessionStorage.removeItem(TOKEN_KEY);
-  } catch { /* ignore */ }
+  if (bearer) {
+    localSet(TOKEN_KEY, bearer);
+    sessionSet(TOKEN_KEY, bearer);
+  } else {
+    localRemove(TOKEN_KEY);
+    sessionRemove(TOKEN_KEY);
+  }
 }
+
+/** The framed/token client is the one whose cookies may be dropped — the server needs to know. */
+export const needsTokenTransport = () => inFrame || Boolean(bearer);
 
 export class ApiError extends Error {
   constructor(status, message, extra = {}) {
@@ -48,7 +61,7 @@ let lastOfflineReport = 0;
 async function request(method, path, body, opts = {}) {
   const headers = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
-  if (inFrame) headers['x-app-context'] = 'embedded';
+  if (inFrame || bearer) headers['x-app-context'] = 'embedded';
   if (bearer) headers.authorization = `Bearer ${bearer}`;
   let res;
   try {
@@ -78,12 +91,32 @@ async function request(method, path, body, opts = {}) {
 
   if (!res.ok) {
     const err = data?.error || {};
-    const message = err.message || `Request failed (${res.status})`;
-    const e = new ApiError(res.status, message, { code: err.code, fields: err.fields, cart: err.cart });
+    let message = err.message || `Request failed (${res.status})`;
+
+    // A 401 in the middle of a session is usually plumbing rather than a logout: the frame
+    // dropped the session cookie, a proxy restarted, or a serverless instance came up without
+    // the row. Ask the server once whether a session does exist and replay the call — that is
+    // the difference between "your cart moved" and being thrown back to a sign-in prompt.
+    // Login/register endpoints keep their literal 401 ("that password is wrong").
+    const weThinkWeAreSignedIn = Boolean(state.user || state.owner?.signedIn);
+    const probeable = !opts.probed && weThinkWeAreSignedIn && !/^\/api\/(auth\/|owner\/login)/.test(path);
+    if (res.status === 401 && probeable) {
+      const ownerSide = path.startsWith('/api/owner/');
+      const probe = await request('GET', ownerSide ? '/api/owner/session' : '/api/auth/me', undefined, {
+        silent401: true,
+        probed: true,
+      });
+      if (ownerSide ? probe?.signed_in : probe?.user) {
+        if (!ownerSide) set({ user: probe.user, cart: probe.cart ?? state.cart });
+        return request(method, path, body, { ...opts, probed: true });
+      }
+      if (needsTokenTransport()) message = t('toast.session_blocked');
+    }
+
     if (res.status === 401 && !opts.silent401 && state.user) {
       set({ user: null, cart: emptyCart() });
     }
-    throw e;
+    throw new ApiError(res.status, message, { code: err.code, fields: err.fields, cart: err.cart });
   }
   return data;
 }

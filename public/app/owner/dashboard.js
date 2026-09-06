@@ -3,10 +3,11 @@ import { h, mount } from '../core/dom.js';
 import { icons } from '../core/icons.js';
 import { t } from '../core/i18n.js';
 import { state, set, hydrateOwner } from '../core/store.js';
-import { api } from '../core/api.js';
+import { api, inFrame } from '../core/api.js';
 import { page, sheet, toast, pill, notice, kpiCard, statusChip, emptyState, section, confirmSheet, stepper } from '../core/components.js';
 import { money, money2, timeAgo, shortDate, dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
+import { storageAvailable } from '../core/storage.js';
 import { ownerShell, elevateBar, elevate, lockNow, closeShift } from './shared.js';
 
 export function docTitle() {
@@ -26,9 +27,25 @@ export function pinView(root) {
     mount(dots, ...Array.from({ length: Math.max(4, pin.length) }, (_, i) => h('i', { class: i < pin.length ? 'on' : '' })));
   };
 
+  // A keypad that submits on its own must also *stop* submitting: without the cancel, a 6-digit
+  // PIN fires a login at digit four, fails, and burns the counter's rate budget for nothing.
+  let autoTimer = null;
+  const cancelAuto = () => {
+    if (autoTimer) {
+      clearTimeout(autoTimer);
+      autoTimer = null;
+    }
+  };
+  const setBusy = (on) => {
+    busy = on;
+    keys.classList.toggle('busy', on);
+    demoBtn.disabled = on;
+  };
+
   const submit = async () => {
     if (busy || pin.length < 4) return;
-    busy = true;
+    cancelAuto();
+    setBusy(true);
     error.textContent = '';
     try {
       const res = await api.post('/api/owner/login', { pin });
@@ -43,30 +60,50 @@ export function pinView(root) {
       pin = '';
       paintDots();
     } finally {
-      busy = false;
+      setBusy(false);
     }
   };
 
   const press = (d) => {
-    if (pin.length >= 6) return;
+    if (busy || pin.length >= 6) return;
+    cancelAuto();
     pin += d;
     paintDots();
     if (navigator.vibrate) navigator.vibrate(8);
-    if (pin.length >= 4) setTimeout(submit, 120);
+    if (pin.length >= 4) autoTimer = setTimeout(submit, 320);
   };
 
+  const demoBtn = h('button', {
+    class: 'chip',
+    type: 'button',
+    text: 'Demo PIN 4321',
+    onclick: () => {
+      if (busy) return;
+      cancelAuto();
+      pin = '4321';
+      paintDots();
+      submit();
+    },
+  });
+
   mount(keys,
-    ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('button', { class: 'key', type: 'button', onclick: () => press(String(n)) }, h('span', { text: String(n) }), n === 1 || n === 7 ? null : null)),
-    h('button', { class: 'key fn', type: 'button', 'aria-label': t('common.clear'), onclick: () => { pin = ''; paintDots(); }, html: icons.backspace }),
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('button', { class: 'key', type: 'button', onclick: () => press(String(n)) }, h('span', { text: String(n) }))),
+    h('button', { class: 'key fn', type: 'button', 'aria-label': t('common.clear'), onclick: () => { cancelAuto(); pin = ''; paintDots(); }, html: icons.backspace }),
     h('button', { class: 'key', type: 'button', onclick: () => press('0') }, h('span', { text: '0' })),
-    h('button', { class: 'key go', type: 'button', 'aria-label': t('auth.signin'), onclick: submit, html: icons.enter }));
+    h('button', { class: 'key go', type: 'button', 'aria-label': t('auth.signin'), onclick: () => { cancelAuto(); submit(); }, html: icons.enter }));
 
   document.addEventListener('keydown', onKey);
   function onKey(e) {
     if (e.key >= '0' && e.key <= '9') press(e.key);
-    else if (e.key === 'Backspace') { pin = pin.slice(0, -1); paintDots(); }
-    else if (e.key === 'Enter') submit();
-    else if (e.key === 'Escape') go('/');
+    else if (e.key === 'Backspace') {
+      if (busy) return;
+      cancelAuto();
+      pin = pin.slice(0, -1);
+      paintDots();
+    } else if (e.key === 'Enter') {
+      cancelAuto();
+      submit();
+    } else if (e.key === 'Escape') go('/');
   }
 
   paintDots();
@@ -81,10 +118,19 @@ export function pinView(root) {
       keys,
       h('div', { class: 'row', style: 'justify-content:center;gap:10px;margin-top:14px' },
         h('a', { class: 'chip', href: '/', 'data-link': '' }, h('span', { style: 'width:15px', html: icons.chevL }), t('owner.back_to_store')),
-        h('button', { class: 'chip', text: 'Demo PIN 4321', onclick: () => { pin = '4321'; paintDots(); submit(); } })),
+        demoBtn,
+        // Counter tablets live inside kiosks and previews; the one thing that must always be
+        // reachable is a way to leave the frame, because that is where sessions get dropped.
+        inFrame ? h('a', { class: 'chip', href: location.href, target: '_blank', rel: 'noopener' }, t('common.open_new_tab')) : null),
+      !storageAvailable()
+        ? h('div', { class: 'notice warn', style: 'margin-top:12px', text: t('auth.storage_blocked') })
+        : null,
       h('p', { class: 'tiny muted center', style: 'margin-top:10px', text: t('owner.pin_hint') })));
 
-  return () => document.removeEventListener('keydown', onKey);
+  return () => {
+    document.removeEventListener('keydown', onKey);
+    cancelAuto();
+  };
 }
 
 /* --------------------------------------------------------------- dashboard ----- */

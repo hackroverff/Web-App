@@ -17,13 +17,19 @@ export function parseCookies(header = '') {
 }
 
 export function serializeCookie(name, value, opts = {}) {
-  const { maxAge = null, httpOnly = true, sameSite = 'lax', secure = false, path = '/' } = opts;
+  const { maxAge = null, httpOnly = true, sameSite = 'lax', secure = false, partitioned = false, path = '/' } = opts;
   const bits = [`${name}=${value === null || value === undefined ? '' : encodeURIComponent(value)}`];
   bits.push(`Path=${path}`);
   if (maxAge !== null) bits.push(`Max-Age=${Math.max(0, Math.floor(maxAge))}`);
   if (httpOnly) bits.push('HttpOnly');
   if (sameSite) bits.push(`SameSite=${sameSite}`);
   if (secure) bits.push('Secure');
+  // CHIPS. A `SameSite=None` cookie is *not* enough inside another site's iframe any more:
+  // browsers that block third-party cookies drop it, so the app comes back anonymous on the
+  // next request and every write 401s ("please sign in" right after signing in). Partitioning
+  // scopes the cookie to this frame's top-site + origin pair, which is what lets it be
+  // stored at all. Only legal alongside SameSite=None; Secure, so it is gated here too.
+  if (partitioned && secure && String(sameSite).toLowerCase() === 'none') bits.push('Partitioned');
   return bits.join('; ');
 }
 

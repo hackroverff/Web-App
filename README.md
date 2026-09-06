@@ -58,11 +58,21 @@ Money is never the client's opinion — it is what the server computes, twice.
 - **Sessions work inside a frame too.** A cookie alone breaks the moment the app is opened
   in another site's iframe (device preview, kiosk embed): the browser refuses a `SameSite=Lax`
   cookie from a third-party frame, so you appear signed in and then every cart write 401s. The
-  server reads `Sec-Fetch-Dest` / `X-App-Context`, upgrades that client to `SameSite=None; Secure`
-  and mirrors the token into the login response, which the client replays as `Authorization: Bearer`.
-  Because `SameSite=None` removes the browser's CSRF guard, writes are origin-checked on the server.
+  server reads `Sec-Fetch-Dest` / `X-App-Context`, upgrades that client to `SameSite=None; Secure;
+  Partitioned` (CHIPS — without the partition attribute a browser that blocks third-party cookies
+  simply drops the cookie) and mirrors the token into the login response, which the client replays
+  as `Authorization: Bearer` from memory + both storages, so a reload or a new tab does not sign
+  you out. Because `SameSite=None` removes the browser's CSRF guard, writes are origin-checked on
+  the server, and `GET /api/auth/diag` answers "am I really signed out?" with what the server saw.
   Top-level visitors get the plain Lax cookie and no token in the body. Embedding is still refused
   by default — `FRAME_ANCESTORS` opts a host in (`npm run start:preview` does it for the demo).
+- **Browsing is never rate limited; guessing is.** The abuse budget is keyed per session when one
+  exists and exempt for idempotent catalogue reads, because a shop shares one broadband line — and a
+  shopper paging through 57 products must not be locked out of their own cart. Auth attempts and the
+  PIN keypad keep their own tighter, IP-keyed buckets.
+- **Local storage is optional.** A frame the browser refuses storage to (sandboxed iframe, ITP,
+  "block all cookies") used to throw during module evaluation and show a white screen; every access
+  goes through `core/storage.js`, which falls back to memory. Framed screens offer *Open in a new tab*.
 - **Row-level scoping.** A customer's cart, orders and addresses are keyed by their own `user_id` in every
   query — the tests assert that another signed-in customer gets 403/404 on someone else's order id.
 - **Idempotent + auditable.** UPI references are unique per order (double-submit returns the first order),

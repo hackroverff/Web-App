@@ -379,18 +379,83 @@ input.check { width: 18px; height: 18px; accent-color: var(--green-600); cursor:
 .kpi .h { font-size: 11.5px; color: #7fa693; margin-top: 2px; }
 .kpi.accent { background: linear-gradient(180deg, #14432c, #0f3323); border-color: #2b6c48; }
 
-.keypad-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 24px 18px calc(24px + var(--safe-b)); background: radial-gradient(110% 80% at 50% 0%, #14372a, #0b1a13 70%); }
-.keypad-card { width: min(360px, 100%); background: #10251c; border: 1px solid #224835; border-radius: var(--r-xl); padding: 18px; box-shadow: var(--shadow-3); }
-.pins { display: flex; justify-content: center; gap: 10px; margin: 10px 0 16px; }
-.pins i { width: 13px; height: 13px; border-radius: 50%; background: #2b4e3d; transition: transform .14s ease, background .14s ease; }
+/* The PIN gate and the auth screens paint their own background, so they own the whole
+   viewport: `position: fixed` keeps them edge-to-edge no matter what padding or min-height the
+   container above them has — as an in-flow block it used to leave a pale band around a dark
+   screen, which is the single reason this page looked broken on a desktop-width frame. */
+.keypad-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: max(20px, 4vh) 18px calc(24px + var(--safe-b));
+  background: radial-gradient(110% 80% at 50% 0%, #14372a, #0b1a13 70%);
+}
+/* `margin: auto` on the child centers it in both axes and still lets a tall form (sign-up)
+   scroll from its top — `place-items: center` clips the first field above the scroll origin. */
+.keypad-wrap > * { margin: auto; }
+.keypad-card {
+  width: min(368px, 100%);
+  background: #10251c;
+  border: 1px solid #224835;
+  border-radius: var(--r-xl);
+  padding: 20px 18px 18px;
+  box-shadow: var(--shadow-3);
+}
+.pins { display: flex; justify-content: center; gap: 11px; margin: 12px 0 16px; }
+.pins i { width: 14px; height: 14px; border-radius: 50%; background: #2b4e3d; transition: transform .14s ease, background .14s ease; }
 .pins i.on { background: #38d996; transform: scale(1.16); }
-.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.key { height: 58px; border-radius: 14px; border: 1px solid #244936; background: #16301f; color: #eaf2ee; font-size: 21px; font-weight: 700; cursor: pointer; }
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+.keys.busy { opacity: .55; pointer-events: none; }
+.key {
+  min-height: 58px;
+  border-radius: 14px;
+  border: 1px solid #244936;
+  background: #16301f;
+  color: #eaf2ee;
+  font-size: clamp(20px, 5.6vw, 25px);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: background .12s ease, transform .08s ease;
+}
 .key:hover { background: #1c3b28; }
+.key:active { transform: scale(.97); background: #21452e; }
+.key:focus-visible { outline: 2px solid #38d996; outline-offset: 2px; }
 .key.fn { font-size: 15px; color: #9dbcb0; }
+.key.fn svg { width: 21px; height: 21px; }
 .key.go { background: #16925c; border-color: #1aa86a; color: #fff; }
+.key.go:hover { background: #17a266; }
+.key:disabled, .chip:disabled { opacity: .55; cursor: default; }
 .shake { animation: shake .34s; }
 @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+
+/* On a tablet or a wide preview frame a lone 368px card floating in a dark void reads badly;
+   the gate becomes a two-column panel — identity and dots on the left, the pad on the right. */
+@media (min-width: 760px) {
+  .keypad-card {
+    width: min(700px, 92vw);
+    display: grid;
+    grid-template-columns: 1fr minmax(240px, 296px);
+    column-gap: 30px;
+    row-gap: 4px;
+    align-items: center;
+    padding: 26px 28px;
+  }
+  .keypad-card > :first-child { grid-column: 1; align-self: end; }
+  .keypad-card > .pins { grid-column: 1; }
+  .keypad-card > .small { grid-column: 1; min-height: 34px; }
+  .keypad-card > .keys { grid-column: 2; grid-row: 1 / span 3; }
+  .keypad-card > .row, .keypad-card > .tiny { grid-column: 1 / -1; }
+  .key { min-height: 62px; font-size: 24px; }
+}
 
 .ops { border-radius: var(--r); border: 1px solid #22442f; background: #0f231a; padding: 12px; }
 .ops + .ops { margin-top: 10px; }

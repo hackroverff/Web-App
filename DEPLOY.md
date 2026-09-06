@@ -148,6 +148,20 @@ What does not, in plain terms:
 - Function duration is capped on Hobby (10 s default, 60 s max, 300 s with Fluid compute). Our
   endpoints answer in single-digit milliseconds, so this never bites — only that first cold seed.
 
+And if the app *loads* but signing in does not stick, it is the browser refusing to keep a session for
+the frame you are looking through, not the app forgetting it. Both transports are belt-and-braces
+(`SameSite=None; Secure; Partitioned` cookie **and** a bearer token held in memory plus both
+storages), a framed screen offers *Open in a new tab*, and this tells you which one arrived:
+
+```bash
+curl -s https://<url>/api/auth/diag              # what the server sees about a session
+curl -s -H 'x-app-context: embedded' https://<url>/api/auth/diag   # as a framed client
+```
+
+`cookie_present` / `bearer_present` / `session_valid` are the three that matter: `session_valid: false`
+with `cookie_present: true` means the cookie arrived but no instance has that row — the ephemeral-disk
+problem above, not an auth bug.
+
 Sanity-check any deployment (replace `<url>`):
 
 ```bash

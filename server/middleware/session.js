@@ -23,6 +23,11 @@ import { clientIp } from '../lib/ratelimit.js';
  */
 export function isEmbedded(req) {
   if (String(req.headers['x-app-context'] || '') === 'embedded') return true;
+  // A client that already carries the bearer token is by definition one that cannot rely on
+  // a cookie (frames, storage-restricted WebViews), so it has to keep getting None+Partitioned
+  // cookies and a mirrored token — otherwise the attributes flip back to Lax on the next
+  // request and the browser drops the session it just got.
+  if (bearerToken(req)) return true;
   const dest = String(req.headers['sec-fetch-dest'] || '');
   if (dest && ['iframe', 'frame', 'embed', 'object'].includes(dest)) return true;
   const site = String(req.headers['sec-fetch-site'] || '');
@@ -32,9 +37,12 @@ export function isEmbedded(req) {
 
 /** Cookie attributes for this request; SameSite=None always needs Secure. */
 export function cookieAttrs(req) {
-  const embedded = config.sameSiteAuto && isEmbedded(req);
+  // attachIdentity already worked this out for the request; only recompute for requests it
+  // did not run on (e.g. a cookie set from a route it is mounted after).
+  const embedded = config.sameSiteAuto && (typeof req.embedded === 'boolean' ? req.embedded : isEmbedded(req));
   const sameSite = embedded ? 'none' : config.sameSite;
-  return { sameSite, secure: sameSite === 'none' ? true : config.secureCookies };
+  const secure = sameSite === 'none' ? true : config.secureCookies;
+  return { sameSite, secure, partitioned: embedded };
 }
 
 function hashToken(token) {
