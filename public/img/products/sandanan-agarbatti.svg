@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Sandanan Agarbatti">
+<rect width="120" height="100" rx="14" fill="#fdf0e6"/>
+<g transform="translate(4 2)"><path d="M40 58c0 8 8 12 16 12s16-4 16-12z" fill="#a4530f" opacity=".9"/><path d="M56 30c6 6 6 12 0 18-6-6-6-12 0-18z" fill="#a4530f"/><path d="M34 58h44" stroke="#a4530f" stroke-width="3" stroke-linecap="round"/></g>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#a4530f" opacity=".65">20 minis</text>
+<text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#a4530f" opacity=".22">SA</text>
+</svg>

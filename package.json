@@ -1,0 +1,23 @@
+{
+  "name": "sathvika-mv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sathvika MV \u2014 mobile-first ordering PWA for a family-run grocery & provision store in Chennai (retail + wholesale).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/index.js",
+    "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
+    "seed": "node --no-warnings=ExperimentalWarning server/seed/index.js",
+    "reset": "node --no-warnings=ExperimentalWarning server/seed/index.js --reset",
+    "test": "node --no-warnings=ExperimentalWarning server/test/api.test.js",
+    "smoke": "node --no-warnings=ExperimentalWarning scripts/smoke-frontend.mjs",
+    "start:preview": "FRAME_ANCESTORS=\"'self' *\" RATE_LIMIT_MAX=600 AUTH_RATE_LIMIT_MAX=60 OWNER_PIN_RATE_MAX=60 node --no-warnings=ExperimentalWarning server/index.js",
+    "logo": "node --no-warnings=ExperimentalWarning scripts/build-logo.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

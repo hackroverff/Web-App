@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Tender Coconut Water">
+<rect width="120" height="100" rx="14" fill="#e8f1fb"/>
+<g transform="translate(4 2)"><path d="M40 34h30l-3 34a6 6 0 0 1-6 5H49a6 6 0 0 1-6-5z" fill="#1e5f8f" opacity=".9"/><path d="M70 40h6a6 6 0 0 1 0 12h-4" stroke="#1e5f8f" stroke-width="3" fill="none"/><path d="M46 26c2-4 0-6 2-9M54 26c2-4 0-6 2-9M62 26c2-4 0-6 2-9" stroke="#1e5f8f" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/></g>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#1e5f8f" opacity=".65">200 ml</text>
+<text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#1e5f8f" opacity=".22">TC</text>
+</svg>

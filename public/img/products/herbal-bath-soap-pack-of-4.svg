@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Herbal Bath Soap (Pack of 4)">
+<rect width="120" height="100" rx="14" fill="#fdeef3"/>
+<g transform="translate(4 2)"><rect x="34" y="40" width="44" height="28" rx="8" fill="#a3346a" opacity=".9"/><path d="M46 32c0-6 4-8 8-8" stroke="#a3346a" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="60" cy="54" r="6" fill="#fdeef3" opacity=".55"/></g>
+<text x="110" y="16" text-anchor="end" font-family="system-ui,sans-serif" font-size="8.5" fill="#a3346a" opacity=".65">4 × 100 g</text>
+<text x="110" y="92" text-anchor="end" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#a3346a" opacity=".22">HB</text>
+</svg>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sathvika MV — Groceries &amp; provisions, T. Nagar</title>
+    <meta
+      name="description"
+      content="Sathvika MV — order groceries and daily provisions from our family store in T. Nagar, Chennai. Retail delivery and wholesale slabs for shops, canteens and offices."
+    />
+    <meta name="theme-color" content="#0f7b4f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Sathvika MV" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/img/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/img/icon-192.png" />
+    <link rel="stylesheet" href="/styles/app.css" />
+    <link rel="preload" href="/api/catalog/bootstrap" as="fetch" crossorigin />
+  </head>
+  <body>
+    <!-- Launch screen: logo, wordmark, brief loading animation, then the app. -->
+    <div id="splash" class="splash" role="status" aria-live="polite">
+      <div class="splash-inner">
+        <img src="/img/logo.svg" alt="" class="splash-logo" width="112" height="112" />
+        <h1 class="splash-name">Sathvika <span>MV</span></h1>
+        <p class="splash-tag">Groceries &amp; provisions · T. Nagar</p>
+        <div class="splash-bar"><i></i></div>
+      </div>
+    </div>
+
+    <noscript>
+      <div class="noscript">
+        Sathvika MV needs JavaScript for the ordering app. Please enable it, or call the store on
+        <a href="tel:+919840012345">+91 98400 12345</a>.
+      </div>
+    </noscript>
+
+    <div id="app" class="app" hidden></div>
+    <div id="overlays"></div>
+    <script type="module" src="/app/main.js"></script>
+  </body>
+</html>
